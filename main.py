@@ -1,22 +1,29 @@
 import sys
 
-from PySide6.QtCore import QSize, Qt
-from PySide6.QtWidgets import QApplication, QMainWindow, QPushButton
+from pathlib import Path
+
+from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton
+
+from qt_material import apply_stylesheet
+
+from src.ui.generated.main_ui import Ui_MainWindow
 
 
-class MainWindow(QMainWindow):
+class MainWindow(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("HiVoIP")
-        self.resize(800, 800)
-
-        button = QPushButton("Jarquavious will be summoned")
-        button.clicked.connect(lambda: print("Hi"))
-        self.setCentralWidget(button)
+        self.setupUi(self)
 
 app = QApplication(sys.argv)
 window = MainWindow()
+
+apply_stylesheet(app, theme='dark_cyan.xml')
+
+with open(Path("src") / "style.qss") as f:
+    style_src = f.read()
+    app.setStyleSheet(app.styleSheet() + style_src)
 
 window.show()
 app.exec()
