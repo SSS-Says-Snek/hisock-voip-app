@@ -1,3 +1,0 @@
-QPushButton:focus {
-    background-color: none;
-}

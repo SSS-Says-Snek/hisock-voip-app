@@ -1,0 +1,9 @@
+QPushButton:focus {
+    background-color: none;
+}
+
+
+/* Debug purposes
+    QLabel {
+    background-color: pink;
+} */
