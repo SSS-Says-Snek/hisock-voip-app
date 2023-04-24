@@ -21,7 +21,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.sendButton.clicked.connect(self.send_message)
 
         haha_messages = [
-            Message("SSS_Says_Snek", "Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus !!")
+            Message("SSS_Says_Snek", "Wowwwww \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nn\n\n\namogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus !!"),
+            Message("SSS_Says_Snek", "cool"),
+            Message("SSS_Says_Snek", "cool"),
+            Message("SSS_Says_Snek", "cool"),
+            Message("SSS_Says_Snek", "cool")
         ]
 
         for message in haha_messages:

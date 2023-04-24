@@ -10,6 +10,7 @@ class Message(QWidget):
         self.username = username
         self.message = message
 
+
         self.username_label = QLabel(self.username)
 
         self.message_label = QLabel(self.message)
@@ -35,6 +36,7 @@ class Message(QWidget):
     
     def paintEvent(self, event: QPaintEvent):
         painter = QPainter(self)
+        painter.setRenderHints(QPainter.RenderHint.Antialiasing)
         path = QPainterPath()
 
         brush = QBrush()

@@ -3,3 +3,7 @@ QLabel#time {
     color: gray;
     font-style: italic;
 }
+
+QScrollBar {
+    color: pink;
+}

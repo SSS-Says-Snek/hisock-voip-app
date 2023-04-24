@@ -64,20 +64,32 @@
      </item>
     </layout>
    </widget>
-   <widget class="QWidget" name="verticalLayoutWidget">
+   <widget class="QScrollArea" name="message_scrollarea">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>70</y>
-      <width>571</width>
-      <height>501</height>
+      <x>20</x>
+      <y>30</y>
+      <width>591</width>
+      <height>541</height>
      </rect>
     </property>
-    <layout class="QVBoxLayout" name="messages">
-     <property name="sizeConstraint">
-      <enum>QLayout::SetMinimumSize</enum>
+    <property name="widgetResizable">
+     <bool>true</bool>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+    </property>
+    <widget class="QWidget" name="widget">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>0</y>
+       <width>589</width>
+       <height>539</height>
+      </rect>
      </property>
-    </layout>
+     <layout class="QVBoxLayout" name="messages"/>
+    </widget>
    </widget>
   </widget>
  </widget>
