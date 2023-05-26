@@ -2,6 +2,10 @@ QPushButton:focus {
     background-color: none;
 }
 
+QLineEdit {
+    color: white;
+}
+
 
 /* Debug purposes
     QLabel {

@@ -23,7 +23,7 @@
       <height>541</height>
      </rect>
     </property>
-    <layout class="QVBoxLayout" name="right">
+    <layout class="QVBoxLayout" name="online">
      <item>
       <widget class="QLabel" name="label">
        <property name="font">
