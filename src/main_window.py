@@ -1,4 +1,5 @@
 from PyQt6.QtWidgets import QMainWindow
+from PyQt6.QtCore import Qt
 
 from hisock import ThreadedHiSockClient
 
@@ -22,15 +23,23 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client = client
         self.username = username
 
-        haha_messages = [
-            "Wowwwww \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nn\n\n\namogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus !!",
-            "cool",
-            "cool",
-            "cool"
-        ]
+        self.messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        for message in haha_messages:
-            self.messages.addWidget(Message(self.username, message))
+        # haha_messages = [
+        #     "Wowwwww \n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nn\n\n\namogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus Wowwwww amogus !!",
+        #     "cool",
+        #     "cool",
+        #     "cool"
+        # ]
+
+        # for message in haha_messages:
+        #     self.messages.addWidget(Message(self.username, message))
+
+        @self.client.on("recv_everyone_message")
+        def on_recv_everyone_message(data: dict):
+            if data["username"] == self.username:
+                print("wow")
+
 
 
     def on_scroll_change(self):
@@ -39,9 +48,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     def send_message(self):
         text = self.messageToSend.text()
+
+        message = Message(self.username, text)
         self.messages.addWidget(
-            Message(self.username, text)
+            message
         )
+
+        self.client.send("send_everyone_message", text)
         
         # x = self.message_scrollarea.verticalScrollBar().maximum()
         # self.message_scrollarea.verticalScrollBar().setValue(
