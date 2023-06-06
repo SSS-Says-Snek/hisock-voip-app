@@ -46,10 +46,11 @@ class GrowingTextEdit(QTextEdit):
 
 
 class Message(QWidget):
-    def __init__(self, username: str, message: str):
+    def __init__(self, username: str, time_sent_str: str, message: str):
         super().__init__()
 
         self.username = username
+        self.time_sent_str = time_sent_str
         self.message = message
 
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
@@ -78,7 +79,7 @@ class Message(QWidget):
         layout.addWidget(self.username_label, 0, 0)
         layout.setColumnStretch(0, 1)
 
-        time = QLabel("11:03 AM, 3/30/2023")
+        time = QLabel(time_sent_str)
         time.setObjectName("time")
         layout.addWidget(time, 0, 1)
 

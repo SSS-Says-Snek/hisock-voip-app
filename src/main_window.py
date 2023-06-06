@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from PyQt6.QtWidgets import QMainWindow
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
@@ -8,7 +10,7 @@ from src.ui.custom.message import Message
 
 
 class QThreadedHiSockClient(QThread):
-    new_message = pyqtSignal(str, str)
+    new_message = pyqtSignal(str, datetime, str)
 
     def __init__(self, client: HiSockClient, username: str):
         super().__init__()
@@ -19,18 +21,23 @@ class QThreadedHiSockClient(QThread):
         @self.client.on("recv_everyone_message")
         def on_recv_everyone_message(data: dict):
             if data["username"] != self.username:
-                self.new_message.emit(data["username"], data["message"])
+                time_sent = datetime.fromtimestamp(data["time_sent"])
+                self.new_message.emit(data["username"], time_sent, data["message"])
 
     def run(self):
         self.client.start()
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
+    TIME_FMT = "%I:%M %p, %m/%d/%Y"
+
     def __init__(self, client: HiSockClient, username: str):
         super().__init__()
 
-        self.setupUi(self)
+        self.client = client
+        self.username = username
 
+        self.setupUi(self)
         self.messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.messageToSend.returnPressed.connect(self.send_message)
@@ -38,14 +45,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.scrollarea_vbar = self.message_scrollarea.verticalScrollBar()
         self.scrollarea_vbar.rangeChanged.connect(self.on_scroll_change)
-
-        self.username = username
-
-        self.client = client
+        
+        # Client thread setup
         self.client_thread = QThreadedHiSockClient(client, username)
-
         self.client_thread.new_message.connect(self.on_new_message)
         self.client_thread.start()
+
+        self.messages.addWidget(
+            Message(
+                "[Welcome Bot]",
+                datetime.now().strftime(self.TIME_FMT),
+                "Welcome to the hisock VoIP and messaging app! yay"
+            )
+        )
 
     def on_scroll_change(self):
         self.scrollarea_vbar.setValue(self.scrollarea_vbar.maximum())
@@ -54,7 +66,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         text = self.messageToSend.text()
 
         self.messages.addWidget(
-            Message("You", text)
+            Message("You", datetime.now().strftime(self.TIME_FMT), text)
         )
         self.client.send("send_everyone_message", text)
         
@@ -66,7 +78,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.messageToSend.clear()
     
-    def on_new_message(self, username: str, message: str):
+    def on_new_message(self, username: str, time_sent: datetime, message: str):
+        time_sent_str = time_sent.strftime(self.TIME_FMT)
         self.messages.addWidget(
-            Message(username, message)
+            Message(username, time_sent_str, message)
         )

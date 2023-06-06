@@ -1,3 +1,5 @@
+import time
+
 from hisock import HiSockServer
 
 IP = "192.168.1.131"
@@ -16,7 +18,10 @@ def on_leave(client_data):
 @server.on("send_everyone_message")
 def on_message(client_data, msg: str):
     print("wow")
-    server.send_all_clients("recv_everyone_message", {"username": client_data.name, "message": msg})
+
+    # Can't use datetime.now() because hisock can't send arbitrary objects (L pickle)
+    now = time.time()
+    server.send_all_clients("recv_everyone_message", {"username": client_data.name, "message": msg, "time_sent": now})
 
 print(f"Starting server at {IP}:{PORT}!")
 server.start()
