@@ -2,10 +2,10 @@ from ipaddress import IPv4Address
 
 from typing import Optional
 
-from hisock import ThreadedHiSockClient
+from hisock import HiSockClient
 from hisock.utils import ServerNotRunning
 
-from PyQt6.QtCore import QObject, QThread, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QDialog, QLabel
 
 from src.ui.generated.startup_dialog import Ui_Dialog
@@ -13,7 +13,7 @@ from src.main_window import MainWindow
 
 class ConnectWorker(QThread):
     failed = pyqtSignal()
-    succeeded = pyqtSignal(ThreadedHiSockClient)
+    succeeded = pyqtSignal(HiSockClient)
 
     def __init__(self, ip: str, port: str, username: str, parent=None):
         super().__init__(parent)
@@ -24,7 +24,7 @@ class ConnectWorker(QThread):
 
     def run(self):
         try:
-            client = ThreadedHiSockClient((self.ip, int(self.port)), self.username)
+            client = HiSockClient((self.ip, int(self.port)), self.username)
         except (ServerNotRunning, TimeoutError):
             self.failed.emit()
         else:
@@ -76,7 +76,7 @@ class StartupWindow(QDialog, Ui_Dialog):
 
         if self.ip_status.isHidden() and self.port_status.isHidden():
             self.connect_worker = ConnectWorker(ip, port, username)
-            self.connect_worker.succeeded.connect(lambda client: self.on_connect_success(client))
+            self.connect_worker.succeeded.connect(self.on_connect_success)
             self.connect_worker.failed.connect(self.on_connect_fail)
             self.connect_worker.start()
     
