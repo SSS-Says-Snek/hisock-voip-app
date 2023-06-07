@@ -1,6 +1,7 @@
 from datetime import datetime
+from PyQt6 import QtGui
 
-from PyQt6.QtWidgets import QMainWindow
+from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 from hisock import HiSockClient
@@ -11,6 +12,8 @@ from src.ui.custom.message import Message
 
 class QThreadedHiSockClient(QThread):
     new_message = pyqtSignal(str, datetime, str)
+    client_connect = pyqtSignal(str)
+    client_disconnect = pyqtSignal(str)
 
     def __init__(self, client: HiSockClient, username: str):
         super().__init__()
@@ -23,6 +26,20 @@ class QThreadedHiSockClient(QThread):
             if data["username"] != self.username:
                 time_sent = datetime.fromtimestamp(data["time_sent"])
                 self.new_message.emit(data["username"], time_sent, data["message"])
+        
+        @self.client.on("client_connect")
+        def on_client_connect(client_data):
+            if client_data.name == self.username:
+                return
+
+            self.client_connect.emit(client_data.name)
+        
+        @self.client.on("client_disconnect")
+        def on_client_disconnect(client_data):
+            if client_data.name == self.username:
+                return
+
+            self.client_disconnect.emit(client_data.name)
 
     def run(self):
         self.client.start()
@@ -40,8 +57,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.setupUi(self)
         self.messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        self.messageToSend.returnPressed.connect(self.send_message)
-        self.sendButton.clicked.connect(self.send_message)
+        self.message_to_send.returnPressed.connect(self.send_message)
+        self.send_button.clicked.connect(self.send_message)
 
         self.scrollarea_vbar = self.message_scrollarea.verticalScrollBar()
         self.scrollarea_vbar.rangeChanged.connect(self.on_scroll_change)
@@ -49,21 +66,35 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Client thread setup
         self.client_thread = QThreadedHiSockClient(client, username)
         self.client_thread.new_message.connect(self.on_new_message)
+        self.client_thread.client_connect.connect(self.on_client_connect)
+        self.client_thread.client_disconnect.connect(self.on_client_disconnect)
         self.client_thread.start()
 
         self.messages.addWidget(
             Message(
                 "[Welcome Bot]",
                 datetime.now().strftime(self.TIME_FMT),
-                "Welcome to the hisock VoIP and messaging app! yay"
+                f"Welcome to the hisock VoIP and messaging app, \"{self.username}\"! yay"
             )
         )
+
+        self.online_users.addItem("WOWWWWW")
+    
+    # def mousePressEvent(self, event):
+    #     print("G")
+    #     focused_widget = QApplication.focusWidget()
+    #     print(focused_widget, type(focused_widget))
+    #     if isinstance(focused_widget, QListWidget):
+    #         print("W")
+    #         self.online_users.clearFocus()
+        
+    #     super().mousePressEvent(event)
 
     def on_scroll_change(self):
         self.scrollarea_vbar.setValue(self.scrollarea_vbar.maximum())
     
     def send_message(self):
-        text = self.messageToSend.text()
+        text = self.message_to_send.text()
         if text == "" or text.isspace():
             return
 
@@ -78,10 +109,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # )
         # scrollarea_vbar.setValue(scrollarea_vbar.maximum())
 
-        self.messageToSend.clear()
+        self.message_to_send.clear()
     
     def on_new_message(self, username: str, time_sent: datetime, message: str):
         time_sent_str = time_sent.strftime(self.TIME_FMT)
         self.messages.addWidget(
             Message(username, time_sent_str, message)
+        )
+    
+    def on_client_connect(self, username: str):
+        # TEMP
+        time_connected = datetime.now().strftime(self.TIME_FMT)
+
+        self.messages.addWidget(
+            Message("[Server]", time_connected, f"New user \"{username}\" just joined! Say hi!")
+        )
+
+    def on_client_disconnect(self, username: str):
+        # TEMP
+        time_disconnected = datetime.now().strftime(self.TIME_FMT)
+
+        self.messages.addWidget(
+            Message("[Server]", time_disconnected, f"User \"{username}\" just left! Seeya!")
         )

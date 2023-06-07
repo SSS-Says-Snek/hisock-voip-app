@@ -10,6 +10,9 @@
     <height>664</height>
    </rect>
   </property>
+  <property name="focusPolicy">
+   <enum>Qt::NoFocus</enum>
+  </property>
   <property name="windowTitle">
    <string>MainWindow</string>
   </property>
@@ -38,7 +41,11 @@
       </widget>
      </item>
      <item>
-      <widget class="QListWidget" name="onlineUsers"/>
+      <widget class="QListWidget" name="online_users">
+       <property name="focusPolicy">
+        <enum>Qt::StrongFocus</enum>
+       </property>
+      </widget>
      </item>
     </layout>
    </widget>
@@ -53,10 +60,10 @@
     </property>
     <layout class="QHBoxLayout" name="send_box">
      <item>
-      <widget class="QLineEdit" name="messageToSend"/>
+      <widget class="QLineEdit" name="message_to_send"/>
      </item>
      <item>
-      <widget class="QPushButton" name="sendButton">
+      <widget class="QPushButton" name="send_button">
        <property name="text">
         <string>Send</string>
        </property>
