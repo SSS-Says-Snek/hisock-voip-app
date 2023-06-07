@@ -64,6 +64,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     def send_message(self):
         text = self.messageToSend.text()
+        if text == "" or text.isspace():
+            return
 
         self.messages.addWidget(
             Message("You", datetime.now().strftime(self.TIME_FMT), text)
