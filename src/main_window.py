@@ -30,10 +30,11 @@ class QThreadedHiSockClient(QThread):
         self.client = client
         self.name = name
         self.discriminator_num = 0  # Server will send
+        self.username = ""
 
         @self.client.on("recv_everyone_message")
         def on_recv_everyone_message(data: dict):
-            if data["username"] != f"{self.name}#{self.discriminator_num}":
+            if data["username"] != self.username:
                 time_sent = datetime.fromtimestamp(data["time_sent"])
                 self.new_message.emit(data["username"], time_sent, data["message"])
 
@@ -48,7 +49,11 @@ class QThreadedHiSockClient(QThread):
         @self.client.on("discriminator")
         def on_discriminator(discriminator: int):
             self.discriminator_num = discriminator
+            self.username = f"{self.name}#{self.discriminator_num:04}"
+
             self.discriminator.emit(discriminator)
+
+            self.client.change_name(self.username)
         
         @self.client.on("online_users")
         def on_online_users(online_users: list):
@@ -67,6 +72,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client = client
         self.name = name
         self.discriminator = 0  # Server will send
+        self.username = ""
 
         # UI setup and widget overrides
         self.setupUi(self)
@@ -141,16 +147,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def on_discriminator(self, discriminator: int):
         self.discriminator = discriminator
+        self.username = f"{self.name}#{self.discriminator:04}"
 
         self.messages.addWidget(
             Message(
                 "[Welcome Bot]",
                 datetime.now().strftime(self.TIME_FMT),
-                f'Welcome to the hisock VoIP and messaging app, "{self.name}#{self.discriminator}"! yay',
+                f'Welcome to the hisock VoIP and messaging app, "{self.username}"! yay',
             )
         )
 
-        self.online_users.addItem(f"{self.name}#{discriminator}")
+        self.online_users.addItem(self.username)
 
     def on_online_users(self, online_users: list[str]):
         self.online_users.addItems(online_users)

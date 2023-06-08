@@ -18,7 +18,6 @@ server = HiSockServer((IP, PORT))
 
 online_users = []
 used_discriminators = {}
-ip_to_discriminator = {}
 
 
 @server.on("join")
@@ -33,11 +32,10 @@ def on_join(client_data):
     server.send_client(client_data, "discriminator", discriminator)
     server.send_client(client_data, "online_users", online_users)
 
-    username = f"{name}#{discriminator}"
+    username = f"{name}#{discriminator:04}"
 
     online_users.append(username)
     used_discriminators[name].append(discriminator)
-    ip_to_discriminator[client_data.ip] = discriminator
 
     for client in server.get_all_clients():
         if client["ip"] != client_data.ip:
@@ -48,12 +46,10 @@ def on_join(client_data):
 
 @server.on("leave")
 def on_leave(client_data):
-    name = client_data.name
-    discriminator = ip_to_discriminator[client_data.ip]
-    username = f"{name}#{discriminator}"
+    username = client_data.name
 
     online_users.remove(username)
-    used_discriminators[name].remove(discriminator)
+    used_discriminators[username[:-5]].remove(int(username[-4:]))
 
     for client in server.get_all_clients():
         if client["ip"] != client_data.ip:
@@ -62,14 +58,18 @@ def on_leave(client_data):
     print(f"User {username} ({client_data.ip_as_str}) left :(")
 
 
+@server.on("name_change")
+def on_name_change(_, __, ___):
+    pass
+
+
 @server.on("send_everyone_message")
 def on_message(client_data, msg: str):
     print("wow")
 
     # Can't use datetime.now() because hisock can't send arbitrary objects (L pickle)
     now = time.time()
-    username = f"{client_data.name}#{ip_to_discriminator[client_data.ip]}"
-    server.send_all_clients("recv_everyone_message", {"username": username, "message": msg, "time_sent": now})
+    server.send_all_clients("recv_everyone_message", {"username": client_data.name, "message": msg, "time_sent": now})
 
 
 print(f"Starting server at {IP}:{PORT}!")
