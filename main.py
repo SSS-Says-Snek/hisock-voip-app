@@ -1,5 +1,12 @@
-import sys
+"""
+This file is a part of the source code for hisock-voip-app
+This project has been licensed under the MIT license.
+Copyright (c) 2022-present SSS-Says-Snek
+"""
 
+from __future__ import annotations
+
+import sys
 from pathlib import Path
 
 from PyQt6.QtWidgets import QApplication
@@ -20,7 +27,7 @@ if __name__ == "__main__":
 
     # window = MainWindow()
 
-    apply_stylesheet(app, theme='dark_cyan.xml')
+    apply_stylesheet(app, theme="dark_cyan.xml")
 
     load_stylesheet("override.qss")
     load_stylesheet("main.qss")

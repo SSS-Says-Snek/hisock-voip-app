@@ -1,5 +1,13 @@
-import time
+"""
+This file is a part of the source code for hisock-voip-app
+This project has been licensed under the MIT license.
+Copyright (c) 2022-present SSS-Says-Snek
+"""
+
+from __future__ import annotations
+
 import random
+import time
 
 from hisock import HiSockServer
 
@@ -12,6 +20,7 @@ online_users = []
 used_discriminators = {}
 ip_to_discriminator = {}
 
+
 @server.on("join")
 def on_join(client_data):
     username = client_data.name
@@ -20,7 +29,7 @@ def on_join(client_data):
         used_discriminators[username] = []
     while (discriminator := random.randint(0, 9999)) in used_discriminators[username]:
         pass
-    
+
     online_users.append(f"{username}#{discriminator}")
     used_discriminators[username].append(discriminator)
     ip_to_discriminator[client_data.ip] = discriminator
@@ -33,6 +42,7 @@ def on_join(client_data):
 
     print(f"User {username}#{discriminator} ({client_data.ip_as_str}) joined!")
 
+
 @server.on("leave")
 def on_leave(client_data):
     discriminator = ip_to_discriminator[client_data.ip]
@@ -42,6 +52,7 @@ def on_leave(client_data):
 
     print(f"User {client_data.name}#{discriminator} ({client_data.ip_as_str}) left :(")
 
+
 @server.on("send_everyone_message")
 def on_message(client_data, msg: str):
     print("wow")
@@ -50,6 +61,7 @@ def on_message(client_data, msg: str):
     now = time.time()
     username = f"{client_data.name}#{ip_to_discriminator[client_data.ip]}"
     server.send_all_clients("recv_everyone_message", {"username": username, "message": msg, "time_sent": now})
+
 
 print(f"Starting server at {IP}:{PORT}!")
 server.start()

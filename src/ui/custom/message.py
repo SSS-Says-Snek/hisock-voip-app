@@ -1,7 +1,17 @@
-from PyQt6.QtGui import QPainter, QBrush, QColor, QPainterPath, QPaintEvent, QFontMetrics
-from PyQt6.QtCore import Qt, QRectF
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QSizePolicy, QStyleOption, QStyle, QTextEdit
+"""
+This file is a part of the source code for hisock-voip-app
+This project has been licensed under the MIT license.
+Copyright (c) 2022-present SSS-Says-Snek
+"""
 
+from __future__ import annotations
+
+from PyQt6.QtCore import QRectF, Qt
+from PyQt6.QtGui import (QBrush, QColor, QFontMetrics, QPainter, QPainterPath,
+                         QPaintEvent)
+from PyQt6.QtWidgets import (QGridLayout, QHBoxLayout, QLabel, QSizePolicy,
+                             QStyle, QStyleOption, QTextEdit, QVBoxLayout,
+                             QWidget)
 
 # HOW DO I MAKE QTEXTEDIT FIT TO CONTENT AAAAAAAAAAAAAAAAAAAAAAA
 """class IDontKnow(QLabel):
@@ -55,7 +65,6 @@ class Message(QWidget):
 
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
 
-
         self.username_label = QLabel(self.username)
         self.username_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
@@ -63,7 +72,6 @@ class Message(QWidget):
         self.message_label.setWordWrap(True)
         # self.message_label.setStyleSheet("border: none;")
         # self.message_label.setReadOnly(True)
-
 
         # print(self.message_label.document().size().toSize())
         # self.message_label.setFixedHeight(self.message_label.heightForWidth(self.message_label.width()))
@@ -85,8 +93,6 @@ class Message(QWidget):
 
         layout.addWidget(self.message_label, 1, 0, 1, 2)
 
-
-    
     def paintEvent(self, event: QPaintEvent):
         painter = QPainter(self)
         painter.setRenderHints(QPainter.RenderHint.Antialiasing)
@@ -102,4 +108,3 @@ class Message(QWidget):
         painter.setClipPath(path)
 
         painter.fillPath(path, painter.brush())
-

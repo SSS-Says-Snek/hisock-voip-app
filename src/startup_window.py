@@ -1,15 +1,22 @@
-from ipaddress import IPv4Address
+"""
+This file is a part of the source code for hisock-voip-app
+This project has been licensed under the MIT license.
+Copyright (c) 2022-present SSS-Says-Snek
+"""
 
+from __future__ import annotations
+
+from ipaddress import IPv4Address
 from typing import Optional
 
 from hisock import HiSockClient
 from hisock.utils import ServerNotRunning
-
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QDialog, QLabel
 
-from src.ui.generated.startup_dialog import Ui_Dialog
 from src.main_window import MainWindow
+from src.ui.generated.startup_dialog import Ui_Dialog
+
 
 class ConnectWorker(QThread):
     failed = pyqtSignal()
@@ -49,7 +56,7 @@ class StartupWindow(QDialog, Ui_Dialog):
 
         self.connect_worker: Optional[ConnectWorker] = None
         self.main_window: Optional[MainWindow] = None
-    
+
     def on_connect_attempt(self):
         ip = self.ip_input.text()
         port = self.port_input.text()
@@ -58,15 +65,15 @@ class StartupWindow(QDialog, Ui_Dialog):
         self.ip_status.hide()
         self.port_status.hide()
         self.username_status.hide()
-        
+
         try:
             IPv4Address(ip)
         except ValueError:
             self.status_message(self.ip_status, "red", "Please input a valid IPv4 address")
-        
+
         if not port.isdigit() or not 0 < int(port) <= 65535:
             self.status_message(self.port_status, "red", "Please input a valid server port")
-        
+
         if ip == "":
             self.status_message(self.ip_status, "red", "Please input an IPv4 address")
         if port == "":
@@ -79,7 +86,7 @@ class StartupWindow(QDialog, Ui_Dialog):
             self.connect_worker.succeeded.connect(self.on_connect_success)
             self.connect_worker.failed.connect(self.on_connect_fail)
             self.connect_worker.start()
-    
+
     def on_connect_success(self, client):
         self.main_window = MainWindow(client, self.username_input.text())
         self.main_window.show()
@@ -90,13 +97,12 @@ class StartupWindow(QDialog, Ui_Dialog):
         self.status_message(self.ip_status, "red", "The server either is not running or does not exist!")
         self.status_message(self.port_status, "red", "The server either is not running or does not exist!")
 
-    
     @staticmethod
     def status_message(status: QLabel, color: str, text: str):
         status.setStyleSheet(f"QLabel {{color: {color}}}")
         status.setText(text)
         status.show()
-    
+
     @staticmethod
     def set_retain_size(status: QLabel):
         status_sizepolicy = status.sizePolicy()
