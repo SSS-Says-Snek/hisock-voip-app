@@ -23,34 +23,43 @@ ip_to_discriminator = {}
 
 @server.on("join")
 def on_join(client_data):
-    username = client_data.name
+    name = client_data.name
 
-    if used_discriminators.get(username) is None:
-        used_discriminators[username] = []
-    while (discriminator := random.randint(0, 9999)) in used_discriminators[username]:
+    if used_discriminators.get(name) is None:
+        used_discriminators[name] = []
+    while (discriminator := random.randint(0, 9999)) in used_discriminators[name]:
         pass
-
-    online_users.append(f"{username}#{discriminator}")
-    used_discriminators[username].append(discriminator)
-    ip_to_discriminator[client_data.ip] = discriminator
-
+    
     server.send_client(client_data, "discriminator", discriminator)
+    server.send_client(client_data, "online_users", online_users)
+
+    username = f"{name}#{discriminator}"
+
+    online_users.append(username)
+    used_discriminators[name].append(discriminator)
+    ip_to_discriminator[client_data.ip] = discriminator
 
     for client in server.get_all_clients():
         if client["ip"] != client_data.ip:
-            server.send_client(client["ip"], "client_joined", f"{client['name']}#{discriminator}")
+            server.send_client(client["ip"], "client_join", username)
 
-    print(f"User {username}#{discriminator} ({client_data.ip_as_str}) joined!")
+    print(f"User {username} ({client_data.ip_as_str}) joined!")
 
 
 @server.on("leave")
 def on_leave(client_data):
+    name = client_data.name
     discriminator = ip_to_discriminator[client_data.ip]
+    username = f"{name}#{discriminator}"
 
-    online_users.remove(f"{client_data.name}#{discriminator}")
-    used_discriminators[client_data.name].remove(discriminator)
+    online_users.remove(username)
+    used_discriminators[name].remove(discriminator)
 
-    print(f"User {client_data.name}#{discriminator} ({client_data.ip_as_str}) left :(")
+    for client in server.get_all_clients():
+        if client["ip"] != client_data.ip:
+            server.send_client(client["ip"], "client_leave", username)
+
+    print(f"User {username} ({client_data.ip_as_str}) left :(")
 
 
 @server.on("send_everyone_message")

@@ -22,6 +22,7 @@ class QThreadedHiSockClient(QThread):
     client_join = pyqtSignal(str)
     client_leave = pyqtSignal(str)
     discriminator = pyqtSignal(int)
+    online_users = pyqtSignal(list)
 
     def __init__(self, client: HiSockClient, name: str):
         super().__init__()
@@ -48,6 +49,10 @@ class QThreadedHiSockClient(QThread):
         def on_discriminator(discriminator: int):
             self.discriminator_num = discriminator
             self.discriminator.emit(discriminator)
+        
+        @self.client.on("online_users")
+        def on_online_users(online_users: list):
+            self.online_users.emit(online_users)
 
     def run(self):
         self.client.start()
@@ -82,6 +87,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client_thread.client_join.connect(self.on_client_join)
         self.client_thread.client_leave.connect(self.on_client_leave)
         self.client_thread.discriminator.connect(self.on_discriminator)
+        self.client_thread.online_users.connect(self.on_online_users)
         self.client_thread.start()
 
     # def mousePressEvent(self, event):
@@ -145,3 +151,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         )
 
         self.online_users.addItem(f"{self.name}#{discriminator}")
+
+    def on_online_users(self, online_users: list[str]):
+        self.online_users.addItems(online_users)
