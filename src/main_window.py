@@ -1,7 +1,7 @@
 from datetime import datetime
 from PyQt6 import QtGui
 
-from PyQt6.QtWidgets import QApplication, QMainWindow, QListWidget
+from PyQt6.QtWidgets import QMainWindow, QVBoxLayout
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 from hisock import HiSockClient
@@ -12,34 +12,35 @@ from src.ui.custom.message import Message
 
 class QThreadedHiSockClient(QThread):
     new_message = pyqtSignal(str, datetime, str)
-    client_connect = pyqtSignal(str)
-    client_disconnect = pyqtSignal(str)
+    client_join = pyqtSignal(str)
+    client_leave = pyqtSignal(str)
+    discriminator = pyqtSignal(int)
 
-    def __init__(self, client: HiSockClient, username: str):
+    def __init__(self, client: HiSockClient, name: str):
         super().__init__()
 
         self.client = client
-        self.username = username
+        self.name = name
+        self.discriminator_num = 0 # Server will send
 
         @self.client.on("recv_everyone_message")
         def on_recv_everyone_message(data: dict):
-            if data["username"] != self.username:
+            if data["username"] != f"{self.name}#{self.discriminator_num}":
                 time_sent = datetime.fromtimestamp(data["time_sent"])
                 self.new_message.emit(data["username"], time_sent, data["message"])
         
-        @self.client.on("client_connect")
-        def on_client_connect(client_data):
-            if client_data.name == self.username:
-                return
-
-            self.client_connect.emit(client_data.name)
+        @self.client.on("client_join")
+        def on_client_join(username: str):
+            self.client_join.emit(username)
         
-        @self.client.on("client_disconnect")
-        def on_client_disconnect(client_data):
-            if client_data.name == self.username:
-                return
-
-            self.client_disconnect.emit(client_data.name)
+        @self.client.on("client_leave")
+        def on_client_leave(username: str):
+            self.client_leave.emit(username)
+        
+        @self.client.on("discriminator")
+        def on_discriminator(discriminator: int):
+            self.discriminator_num = discriminator
+            self.discriminator.emit(discriminator)
 
     def run(self):
         self.client.start()
@@ -48,15 +49,20 @@ class QThreadedHiSockClient(QThread):
 class MainWindow(QMainWindow, Ui_MainWindow):
     TIME_FMT = "%I:%M %p, %m/%d/%Y"
 
-    def __init__(self, client: HiSockClient, username: str):
+    def __init__(self, client: HiSockClient, name: str):
         super().__init__()
 
         self.client = client
-        self.username = username
+        self.name = name
+        self.discriminator = 0 # Server will send
 
+        # UI setup and widget overrides
         self.setupUi(self)
+        self.messages = QVBoxLayout()
+        self.widget.setLayout(self.messages)
         self.messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        # Signals
         self.message_to_send.returnPressed.connect(self.send_message)
         self.send_button.clicked.connect(self.send_message)
 
@@ -64,21 +70,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.scrollarea_vbar.rangeChanged.connect(self.on_scroll_change)
         
         # Client thread setup
-        self.client_thread = QThreadedHiSockClient(client, username)
+        self.client_thread = QThreadedHiSockClient(client, name)
         self.client_thread.new_message.connect(self.on_new_message)
-        self.client_thread.client_connect.connect(self.on_client_connect)
-        self.client_thread.client_disconnect.connect(self.on_client_disconnect)
+        self.client_thread.client_join.connect(self.on_client_join)
+        self.client_thread.client_leave.connect(self.on_client_leave)
+        self.client_thread.discriminator.connect(self.on_discriminator)
         self.client_thread.start()
-
-        self.messages.addWidget(
-            Message(
-                "[Welcome Bot]",
-                datetime.now().strftime(self.TIME_FMT),
-                f"Welcome to the hisock VoIP and messaging app, \"{self.username}\"! yay"
-            )
-        )
-
-        self.online_users.addItem("WOWWWWW")
     
     # def mousePressEvent(self, event):
     #     print("G")
@@ -117,18 +114,33 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             Message(username, time_sent_str, message)
         )
     
-    def on_client_connect(self, username: str):
+    def on_client_join(self, username: str):
         # TEMP
         time_connected = datetime.now().strftime(self.TIME_FMT)
 
         self.messages.addWidget(
             Message("[Server]", time_connected, f"New user \"{username}\" just joined! Say hi!")
         )
+        self.online_users.addItem(username)
 
-    def on_client_disconnect(self, username: str):
+    def on_client_leave(self, username: str):
         # TEMP
         time_disconnected = datetime.now().strftime(self.TIME_FMT)
 
         self.messages.addWidget(
             Message("[Server]", time_disconnected, f"User \"{username}\" just left! Seeya!")
         )
+        self.online_users.takeItem(self.online_users.row(self.online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0]))
+    
+    def on_discriminator(self, discriminator: int):
+        self.discriminator = discriminator
+
+        self.messages.addWidget(
+            Message(
+                "[Welcome Bot]",
+                datetime.now().strftime(self.TIME_FMT),
+                f"Welcome to the hisock VoIP and messaging app, \"{self.name}#{self.discriminator}\"! yay"
+            )
+        )
+
+        self.online_users.addItem(f"{self.name}#{discriminator}")
