@@ -77,20 +77,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # UI setup and widget overrides
         self.setupUi(self)
         self.messages = QVBoxLayout()
-        self.widget.setLayout(self.messages)
+        self.everyone_message_widget.setLayout(self.messages)
         self.messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         font = self.dm_selection_label.font()
         font.setFamily("Segoe UI")
         font.setPointSize(12)
         self.dm_selection_label.setFont(font)
+        font.setPointSize(20)
+        self.dm_who_label.setFont(font)
 
         # Signals
         self.everyone_message_to_send.returnPressed.connect(self.send_message)
         self.everyone_send_button.clicked.connect(self.send_message)
 
-        self.scrollarea_vbar = self.message_scrollarea.verticalScrollBar()
-        self.scrollarea_vbar.rangeChanged.connect(self.on_scroll_change)
+        self.dm_online_users.itemClicked.connect(self.dm_selection)
+
+        self.scrollarea_vbar = self.everyone_message_scrollarea.verticalScrollBar()
+        self.scrollarea_vbar.rangeChanged.connect(self.scroll_change)
 
         # Client thread setup
         self.client_thread = QThreadedHiSockClient(client, name)
@@ -119,7 +123,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             )
         )
 
-    def on_scroll_change(self):
+    def scroll_change(self):
         self.scrollarea_vbar.setValue(self.scrollarea_vbar.maximum())
 
     def send_message(self):
@@ -131,6 +135,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client.send("send_everyone_message", text)
 
         self.everyone_message_to_send.clear()
+    
+    def dm_selection(self, item: QListWidgetItem):
+        self.dm_states.setCurrentIndex(1)
+    
+    # CLIENT CALLBACKS
 
     def on_new_message(self, username: str, time_sent: datetime, message: str):
         time_sent_str = time_sent.strftime(self.TIME_FMT)
