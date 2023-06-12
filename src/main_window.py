@@ -11,7 +11,7 @@ from datetime import datetime
 from hisock import HiSockClient
 from PyQt6 import QtGui
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtWidgets import QMainWindow, QVBoxLayout
+from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QListWidget, QListWidgetItem
 
 from src.ui.custom.message import Message
 from src.ui.generated.main_ui import Ui_MainWindow
@@ -80,9 +80,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.widget.setLayout(self.messages)
         self.messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        font = self.dm_selection_label.font()
+        font.setFamily("Segoe UI")
+        font.setPointSize(12)
+        self.dm_selection_label.setFont(font)
+
         # Signals
-        self.message_to_send.returnPressed.connect(self.send_message)
-        self.send_button.clicked.connect(self.send_message)
+        self.everyone_message_to_send.returnPressed.connect(self.send_message)
+        self.everyone_send_button.clicked.connect(self.send_message)
 
         self.scrollarea_vbar = self.message_scrollarea.verticalScrollBar()
         self.scrollarea_vbar.rangeChanged.connect(self.on_scroll_change)
@@ -106,24 +111,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     #     super().mousePressEvent(event)
 
+    @staticmethod
+    def remove_username_from_list(online_users: QListWidget, username: str):
+        online_users.takeItem(
+            online_users.row(
+                online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0]
+            )
+        )
+
     def on_scroll_change(self):
         self.scrollarea_vbar.setValue(self.scrollarea_vbar.maximum())
 
     def send_message(self):
-        text = self.message_to_send.text()
+        text = self.everyone_message_to_send.text()
         if text == "" or text.isspace():
             return
 
         self.messages.addWidget(Message("You", datetime.now().strftime(self.TIME_FMT), text))
         self.client.send("send_everyone_message", text)
 
-        # x = self.message_scrollarea.verticalScrollBar().maximum()
-        # self.message_scrollarea.verticalScrollBar().setValue(
-        #     x
-        # )
-        # scrollarea_vbar.setValue(scrollarea_vbar.maximum())
-
-        self.message_to_send.clear()
+        self.everyone_message_to_send.clear()
 
     def on_new_message(self, username: str, time_sent: datetime, message: str):
         time_sent_str = time_sent.strftime(self.TIME_FMT)
@@ -134,16 +141,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         time_connected = datetime.now().strftime(self.TIME_FMT)
 
         self.messages.addWidget(Message("[Server]", time_connected, f'New user "{username}" just joined! Say hi!'))
-        self.online_users.addItem(username)
+    
+        self.everyone_online_users.addItem(username)
+
+        item = QListWidgetItem(username)
+        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.dm_online_users.addItem(item)
 
     def on_client_leave(self, username: str):
         # TEMP
         time_disconnected = datetime.now().strftime(self.TIME_FMT)
 
         self.messages.addWidget(Message("[Server]", time_disconnected, f'User "{username}" just left! Seeya!'))
-        self.online_users.takeItem(
-            self.online_users.row(self.online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0])
-        )
+
+        self.remove_username_from_list(self.everyone_online_users, username)
+        self.remove_username_from_list(self.dm_online_users, username)
 
     def on_discriminator(self, discriminator: int):
         self.discriminator = discriminator
@@ -157,7 +169,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             )
         )
 
-        self.online_users.addItem(self.username)
-
     def on_online_users(self, online_users: list[str]):
-        self.online_users.addItems(online_users)
+        self.everyone_online_users.addItems(online_users)
+
+        for online_user in online_users:
+            item = QListWidgetItem(online_user)
+            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.dm_online_users.addItem(item)

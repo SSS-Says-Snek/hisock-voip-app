@@ -28,14 +28,15 @@ def on_join(client_data):
         used_discriminators[name] = []
     while (discriminator := random.randint(0, 9999)) in used_discriminators[name]:
         pass
-    
-    server.send_client(client_data, "discriminator", discriminator)
-    server.send_client(client_data, "online_users", online_users)
 
     username = f"{name}#{discriminator:04}"
 
     online_users.append(username)
     used_discriminators[name].append(discriminator)
+
+    # INCLUDE CURRENT USER IN ONLINE_USERS
+    server.send_client(client_data, "discriminator", discriminator)
+    server.send_client(client_data, "online_users", online_users)
 
     for client in server.get_all_clients():
         if client["ip"] != client_data.ip:

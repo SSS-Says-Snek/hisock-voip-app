@@ -21,7 +21,7 @@
     <item row="0" column="0">
      <widget class="QTabWidget" name="tabs">
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="everyone_message">
        <attribute name="title">
@@ -76,10 +76,10 @@
         </property>
         <layout class="QHBoxLayout" name="send_box">
          <item>
-          <widget class="QLineEdit" name="message_to_send"/>
+          <widget class="QLineEdit" name="everyone_message_to_send"/>
          </item>
          <item>
-          <widget class="QPushButton" name="send_button">
+          <widget class="QPushButton" name="everyone_send_button">
            <property name="text">
             <string>Send</string>
            </property>
@@ -98,7 +98,7 @@
         </property>
         <layout class="QVBoxLayout" name="online">
          <item>
-          <widget class="QLabel" name="label">
+          <widget class="QLabel" name="everyone_online_label">
            <property name="font">
             <font>
              <family>Segoe UI</family>
@@ -111,13 +111,86 @@
           </widget>
          </item>
          <item>
-          <widget class="QListWidget" name="online_users">
+          <widget class="QListWidget" name="everyone_online_users">
            <property name="focusPolicy">
             <enum>Qt::StrongFocus</enum>
            </property>
           </widget>
          </item>
         </layout>
+       </widget>
+      </widget>
+      <widget class="QWidget" name="direct_message">
+       <attribute name="title">
+        <string>Direct Messages</string>
+       </attribute>
+       <widget class="QStackedWidget" name="stack">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>781</width>
+          <height>661</height>
+         </rect>
+        </property>
+        <property name="currentIndex">
+         <number>0</number>
+        </property>
+        <widget class="QWidget" name="user_selection">
+         <layout class="QVBoxLayout" name="verticalLayout">
+          <property name="sizeConstraint">
+           <enum>QLayout::SetDefaultConstraint</enum>
+          </property>
+          <property name="leftMargin">
+           <number>200</number>
+          </property>
+          <property name="rightMargin">
+           <number>200</number>
+          </property>
+          <item>
+           <spacer name="horizontalSpacer_2">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item alignment="Qt::AlignHCenter">
+           <widget class="QLabel" name="dm_selection_label">
+            <property name="font">
+             <font>
+              <family>Segoe UI</family>
+              <pointsize>12</pointsize>
+             </font>
+            </property>
+            <property name="text">
+             <string>Select a user to Direct Message with</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <spacer name="horizontalSpacer">
+            <property name="orientation">
+             <enum>Qt::Horizontal</enum>
+            </property>
+            <property name="sizeHint" stdset="0">
+             <size>
+              <width>40</width>
+              <height>20</height>
+             </size>
+            </property>
+           </spacer>
+          </item>
+          <item>
+           <widget class="QListWidget" name="dm_online_users"/>
+          </item>
+         </layout>
+        </widget>
        </widget>
       </widget>
      </widget>
