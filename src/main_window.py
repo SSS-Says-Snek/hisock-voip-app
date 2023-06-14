@@ -7,6 +7,7 @@ Copyright (c) 2022-present SSS-Says-Snek
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Optional
 
 from hisock import HiSockClient
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
@@ -130,18 +131,27 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             font.setBold(True)
 
         label.setFont(font)
+    
+    def send_server_message(self, messages: QVBoxLayout, message: str, time: Optional[datetime] = None):
+        messages.addWidget(
+            Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message)
+        )
+
 
     def add_messagebox(self, username: str):
         dm_scrollarea_widget = QScrollArea()
         dm_messages_widget = QWidget()
         dm_messages = QVBoxLayout()
         dm_messages.setAlignment(Qt.AlignmentFlag.AlignTop)
+
         self.dm_message_scrollareas.addWidget(dm_scrollarea_widget)
         dm_scrollarea_widget.setWidget(dm_messages_widget)
         dm_scrollarea_widget.setLayout(dm_messages)
 
         self.dm_messageboxes[username] = dm_messages
         self.dm_message_scrollareas_idx[username] = len(self.dm_message_scrollareas) - 1
+
+        self.send_server_message(dm_messages, "Looks like there's no messages between you two yet!")
 
     def scroll_change(self):
         self.scrollarea_vbar.setValue(self.scrollarea_vbar.maximum())
@@ -188,13 +198,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.everyone_messages.addWidget(Message(username, time_sent_str, message))
 
     def on_client_join(self, username: str):
-        # TEMP
-        time_connected = datetime.now().strftime(self.TIME_FMT)
-
-        self.everyone_messages.addWidget(
-            Message("[Server]", time_connected, f'New user "{username}" just joined! Say hi!')
-        )
-
+        self.send_server_message(self.everyone_messages, f'New user "{username}" just joined! Say hi!')
         self.everyone_online_users.addItem(username)
 
         item = QListWidgetItem(username)
@@ -202,16 +206,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.dm_online_users.addItem(item)
 
         self.add_messagebox(username)
-        print(self.dm_messageboxes)
 
     def on_client_leave(self, username: str):
-        # TEMP
-        time_disconnected = datetime.now().strftime(self.TIME_FMT)
-
-        self.everyone_messages.addWidget(
-            Message("[Server]", time_disconnected, f'User "{username}" just left! Seeya!')
-        )
-
+        self.send_server_message(self.everyone_messages, f'User "{username}" just left! Seeya!')
         self.remove_username_from_list(self.everyone_online_users, username)
 
         # if username not in self.users_not_read:
@@ -232,6 +229,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.discriminator = discriminator
         self.username = f"{self.name}#{self.discriminator:04}"
 
+        self.setWindowTitle(f"{self.windowTitle()} (Logged in as {self.username})")
+
         self.everyone_messages.addWidget(
             Message(
                 "[Welcome Bot]",
@@ -247,11 +246,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         dm_messages.addWidget(Message(username, time_sent_str, message))
 
     def on_online_users(self, online_users: list[str]):
-        self.everyone_online_users.addItems(online_users)
-
         for online_user in online_users:
+            # No self for DMs (I mean, yeah)
             if online_user == self.username:
+                self.everyone_online_users.addItem(f"{online_user} (YOU)")
                 continue
+            else:
+                self.everyone_online_users.addItem(online_user)
 
             item = QListWidgetItem(online_user)
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
