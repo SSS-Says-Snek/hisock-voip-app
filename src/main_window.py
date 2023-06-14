@@ -9,9 +9,9 @@ from __future__ import annotations
 from datetime import datetime
 
 from hisock import HiSockClient
-from PyQt6 import QtGui
+from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QListWidget, QListWidgetItem
+from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QListWidget, QListWidgetItem, QLabel
 
 from src.ui.custom.message import Message
 from src.ui.generated.main_ui import Ui_MainWindow
@@ -80,18 +80,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.everyone_message_widget.setLayout(self.messages)
         self.messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        font = self.dm_selection_label.font()
-        font.setFamily("Segoe UI")
-        font.setPointSize(12)
-        self.dm_selection_label.setFont(font)
-        font.setPointSize(20)
-        self.dm_who_label.setFont(font)
+        self.set_title_font(self.dm_selection_label, 12)
+        self.set_title_font(self.dm_who_label, 20, True)
 
         # Signals
-        self.everyone_message_to_send.returnPressed.connect(self.send_message)
-        self.everyone_send_button.clicked.connect(self.send_message)
+        self.everyone_message_to_send.returnPressed.connect(self.send_everyone_message)
+        self.everyone_send_button.clicked.connect(self.send_everyone_message)
 
-        self.dm_online_users.itemClicked.connect(self.dm_selection)
+        self.dm_online_users.itemDoubleClicked.connect(self.dm_selection)
+        self.dm_back_button.clicked.connect(self.dm_go_back)
+
+        self.dm_message_to_send.returnPressed.connect(self.send_dm_message)
+        self.dm_send_button.clicked.connect(self.send_dm_message)
 
         self.scrollarea_vbar = self.everyone_message_scrollarea.verticalScrollBar()
         self.scrollarea_vbar.rangeChanged.connect(self.scroll_change)
@@ -122,11 +122,19 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0]
             )
         )
+    
+    @staticmethod
+    def set_title_font(label: QLabel, size: int, bold: bool = False):
+        font = QFont("Segoe UI", size)
+        if bold:
+            font.setBold(True)
+        
+        label.setFont(font)
 
     def scroll_change(self):
         self.scrollarea_vbar.setValue(self.scrollarea_vbar.maximum())
 
-    def send_message(self):
+    def send_everyone_message(self):
         text = self.everyone_message_to_send.text()
         if text == "" or text.isspace():
             return
@@ -138,6 +146,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     def dm_selection(self, item: QListWidgetItem):
         self.dm_states.setCurrentIndex(1)
+
+        self.dm_who_label.setText(f"Talking with: {item.text()}")
+        self.set_title_font(self.dm_who_label, 20, True)
+    
+    def dm_go_back(self):
+        self.dm_states.setCurrentIndex(0)
+    
+    def send_dm_message(self):
+        pass
     
     # CLIENT CALLBACKS
 

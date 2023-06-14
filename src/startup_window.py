@@ -80,8 +80,10 @@ class StartupWindow(QDialog, Ui_Dialog):
             self.status_message(self.port_status, "red", "Please input a server port")
         if username == "":
             self.status_message(self.username_status, "red", "Please input a username")
+        if len(username) > 16:
+            self.status_message(self.username_status, "red", "Sorry, username cannot be above 16 characters long")
 
-        if self.ip_status.isHidden() and self.port_status.isHidden():
+        if self.ip_status.isHidden() and self.port_status.isHidden() and self.username_status.isHidden():
             self.connect_worker = ConnectWorker(ip, port, username)
             self.connect_worker.succeeded.connect(self.on_connect_success)
             self.connect_worker.failed.connect(self.on_connect_fail)
