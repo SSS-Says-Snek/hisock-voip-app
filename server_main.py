@@ -73,5 +73,15 @@ def on_message(client_data, msg: str):
     server.send_all_clients("recv_everyone_message", {"username": client_data.name, "message": msg, "time_sent": now})
 
 
+@server.on("send_dm_message")
+def on_dm_message(client_data, data: list):
+    recipient, message = data
+
+    now = time.time()
+    server.send_client(
+        recipient, "recv_dm_message", {"username": client_data.name, "message": message, "time_sent": now}
+    )
+
+
 print(f"Starting server at {IP}:{PORT}!")
 server.start()

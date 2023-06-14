@@ -9,20 +9,22 @@ from __future__ import annotations
 from datetime import datetime
 
 from hisock import HiSockClient
-from PyQt6.QtGui import QFont
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QListWidget, QListWidgetItem, QLabel
+from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
+                             QScrollArea, QVBoxLayout, QWidget)
 
 from src.ui.custom.message import Message
 from src.ui.generated.main_ui import Ui_MainWindow
 
 
 class QThreadedHiSockClient(QThread):
-    new_message = pyqtSignal(str, datetime, str)
+    everyone_message = pyqtSignal(str, datetime, str)
     client_join = pyqtSignal(str)
     client_leave = pyqtSignal(str)
     discriminator = pyqtSignal(int)
     online_users = pyqtSignal(list)
+    dm_message = pyqtSignal(str, datetime, str)
 
     def __init__(self, client: HiSockClient, name: str):
         super().__init__()
@@ -36,7 +38,7 @@ class QThreadedHiSockClient(QThread):
         def on_recv_everyone_message(data: dict):
             if data["username"] != self.username:
                 time_sent = datetime.fromtimestamp(data["time_sent"])
-                self.new_message.emit(data["username"], time_sent, data["message"])
+                self.everyone_message.emit(data["username"], time_sent, data["message"])
 
         @self.client.on("client_join")
         def on_client_join(username: str):
@@ -54,10 +56,15 @@ class QThreadedHiSockClient(QThread):
             self.discriminator.emit(discriminator)
 
             self.client.change_name(self.username)
-        
+
         @self.client.on("online_users")
         def on_online_users(online_users: list):
             self.online_users.emit(online_users)
+
+        @self.client.on("recv_dm_message")
+        def on_recv_dm_message(data: dict):
+            time_sent = datetime.fromtimestamp(data["time_sent"])
+            self.dm_message.emit(data["username"], time_sent, data["message"])
 
     def run(self):
         self.client.start()
@@ -76,12 +83,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # UI setup and widget overrides
         self.setupUi(self)
-        self.messages = QVBoxLayout()
-        self.everyone_message_widget.setLayout(self.messages)
-        self.messages.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.everyone_messages = QVBoxLayout()
+        self.everyone_message_widget.setLayout(self.everyone_messages)
+        self.everyone_messages.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        self.dm_messageboxes = {}
+        self.dm_message_scrollareas_idx = {}
 
         self.set_title_font(self.dm_selection_label, 12)
-        self.set_title_font(self.dm_who_label, 20, True)
+        self.set_title_font(self.dm_who_label, 16, True)
 
         # Signals
         self.everyone_message_to_send.returnPressed.connect(self.send_everyone_message)
@@ -96,40 +106,42 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.scrollarea_vbar = self.everyone_message_scrollarea.verticalScrollBar()
         self.scrollarea_vbar.rangeChanged.connect(self.scroll_change)
 
+        # soon
+        # self.users_not_read = []
+
         # Client thread setup
         self.client_thread = QThreadedHiSockClient(client, name)
-        self.client_thread.new_message.connect(self.on_new_message)
+        self.client_thread.everyone_message.connect(self.on_everyone_message)
         self.client_thread.client_join.connect(self.on_client_join)
         self.client_thread.client_leave.connect(self.on_client_leave)
         self.client_thread.discriminator.connect(self.on_discriminator)
         self.client_thread.online_users.connect(self.on_online_users)
+        self.client_thread.dm_message.connect(self.on_dm_message)
         self.client_thread.start()
-
-    # def mousePressEvent(self, event):
-    #     print("G")
-    #     focused_widget = QApplication.focusWidget()
-    #     print(focused_widget, type(focused_widget))
-    #     if isinstance(focused_widget, QListWidget):
-    #         print("W")
-    #         self.online_users.clearFocus()
-
-    #     super().mousePressEvent(event)
 
     @staticmethod
     def remove_username_from_list(online_users: QListWidget, username: str):
-        online_users.takeItem(
-            online_users.row(
-                online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0]
-            )
-        )
-    
+        online_users.takeItem(online_users.row(online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0]))
+
     @staticmethod
     def set_title_font(label: QLabel, size: int, bold: bool = False):
         font = QFont("Segoe UI", size)
         if bold:
             font.setBold(True)
-        
+
         label.setFont(font)
+
+    def add_messagebox(self, username: str):
+        dm_scrollarea_widget = QScrollArea()
+        dm_messages_widget = QWidget()
+        dm_messages = QVBoxLayout()
+        dm_messages.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.dm_message_scrollareas.addWidget(dm_scrollarea_widget)
+        dm_scrollarea_widget.setWidget(dm_messages_widget)
+        dm_scrollarea_widget.setLayout(dm_messages)
+
+        self.dm_messageboxes[username] = dm_messages
+        self.dm_message_scrollareas_idx[username] = len(self.dm_message_scrollareas) - 1
 
     def scroll_change(self):
         self.scrollarea_vbar.setValue(self.scrollarea_vbar.maximum())
@@ -139,55 +151,88 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if text == "" or text.isspace():
             return
 
-        self.messages.addWidget(Message("You", datetime.now().strftime(self.TIME_FMT), text))
+        self.everyone_messages.addWidget(Message("You", datetime.now().strftime(self.TIME_FMT), text))
         self.client.send("send_everyone_message", text)
 
         self.everyone_message_to_send.clear()
-    
-    def dm_selection(self, item: QListWidgetItem):
-        self.dm_states.setCurrentIndex(1)
 
-        self.dm_who_label.setText(f"Talking with: {item.text()}")
-        self.set_title_font(self.dm_who_label, 20, True)
-    
+    def dm_selection(self, item: QListWidgetItem):
+        username = item.text()
+
+        self.dm_states.setCurrentIndex(1)
+        self.dm_message_scrollareas.setCurrentIndex(self.dm_message_scrollareas_idx[username])
+
+        self.dm_who_label.setText(f"Talking with: {username}")
+        self.set_title_font(self.dm_who_label, 16, True)
+
     def dm_go_back(self):
         self.dm_states.setCurrentIndex(0)
-    
+
     def send_dm_message(self):
-        pass
-    
+        text = self.dm_message_to_send.text()
+        if text == "" or text.isspace():
+            return
+
+        recipient = self.dm_who_label.text().removeprefix("Talking with: ")
+        dm_messages = self.dm_messageboxes[recipient]
+
+        dm_messages.addWidget(Message("You", datetime.now().strftime(self.TIME_FMT), text))
+        self.client.send("send_dm_message", [recipient, text])
+
+        self.dm_message_to_send.clear()
+
     # CLIENT CALLBACKS
 
-    def on_new_message(self, username: str, time_sent: datetime, message: str):
+    def on_everyone_message(self, username: str, time_sent: datetime, message: str):
         time_sent_str = time_sent.strftime(self.TIME_FMT)
-        self.messages.addWidget(Message(username, time_sent_str, message))
+        self.everyone_messages.addWidget(Message(username, time_sent_str, message))
 
     def on_client_join(self, username: str):
         # TEMP
         time_connected = datetime.now().strftime(self.TIME_FMT)
 
-        self.messages.addWidget(Message("[Server]", time_connected, f'New user "{username}" just joined! Say hi!'))
-    
+        self.everyone_messages.addWidget(
+            Message("[Server]", time_connected, f'New user "{username}" just joined! Say hi!')
+        )
+
         self.everyone_online_users.addItem(username)
 
         item = QListWidgetItem(username)
         item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
         self.dm_online_users.addItem(item)
 
+        self.add_messagebox(username)
+        print(self.dm_messageboxes)
+
     def on_client_leave(self, username: str):
         # TEMP
         time_disconnected = datetime.now().strftime(self.TIME_FMT)
 
-        self.messages.addWidget(Message("[Server]", time_disconnected, f'User "{username}" just left! Seeya!'))
+        self.everyone_messages.addWidget(
+            Message("[Server]", time_disconnected, f'User "{username}" just left! Seeya!')
+        )
 
         self.remove_username_from_list(self.everyone_online_users, username)
-        self.remove_username_from_list(self.dm_online_users, username)
+
+        # if username not in self.users_not_read:
+        if True:
+            self.remove_username_from_list(self.dm_online_users, username)
+
+            self.dm_message_scrollareas.removeWidget(
+                self.dm_message_scrollareas.widget(self.dm_message_scrollareas_idx[username])
+            )
+
+            del self.dm_messageboxes[username]
+            del self.dm_message_scrollareas_idx[username]
+        else:
+            dm_user = self.dm_online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0]
+            dm_user.setText(dm_user.text() + " (left)")
 
     def on_discriminator(self, discriminator: int):
         self.discriminator = discriminator
         self.username = f"{self.name}#{self.discriminator:04}"
 
-        self.messages.addWidget(
+        self.everyone_messages.addWidget(
             Message(
                 "[Welcome Bot]",
                 datetime.now().strftime(self.TIME_FMT),
@@ -195,10 +240,21 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             )
         )
 
+    def on_dm_message(self, username: str, time_sent: datetime, message: str):
+        dm_messages = self.dm_messageboxes[username]
+
+        time_sent_str = time_sent.strftime(self.TIME_FMT)
+        dm_messages.addWidget(Message(username, time_sent_str, message))
+
     def on_online_users(self, online_users: list[str]):
         self.everyone_online_users.addItems(online_users)
 
         for online_user in online_users:
+            if online_user == self.username:
+                continue
+
             item = QListWidgetItem(online_user)
             item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
             self.dm_online_users.addItem(item)
+
+            self.add_messagebox(online_user)

@@ -238,7 +238,7 @@
                <property name="font">
                 <font>
                  <family>Segoe UI</family>
-                 <pointsize>20</pointsize>
+                 <pointsize>16</pointsize>
                 </font>
                </property>
                <property name="text">
@@ -249,21 +249,7 @@
             </layout>
            </item>
            <item>
-            <widget class="QScrollArea" name="dm_message_scrollarea">
-             <property name="widgetResizable">
-              <bool>true</bool>
-             </property>
-             <widget class="QWidget" name="dm_message_widget">
-              <property name="geometry">
-               <rect>
-                <x>0</x>
-                <y>0</y>
-                <width>747</width>
-                <height>537</height>
-               </rect>
-              </property>
-             </widget>
-            </widget>
+            <widget class="QStackedWidget" name="dm_message_scrollareas"/>
            </item>
            <item>
             <layout class="QHBoxLayout" name="dm_send_box">
