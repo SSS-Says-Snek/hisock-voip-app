@@ -119,10 +119,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client_thread.online_users.connect(self.on_online_users)
         self.client_thread.dm_message.connect(self.on_dm_message)
         self.client_thread.start()
-
+    
     @staticmethod
-    def remove_username_from_list(online_users: QListWidget, username: str):
-        online_users.takeItem(online_users.row(online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0]))
+    def find_username_from_list(online_users: QListWidget, username: str):
+        return online_users.row(online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0])
+
+    def remove_username_from_list(self, online_users: QListWidget, username: str):
+        online_users.takeItem(self.find_username_from_list(online_users, username))
 
     @staticmethod
     def set_title_font(label: QLabel, size: int, bold: bool = False):
@@ -210,6 +213,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def on_client_leave(self, username: str):
         self.send_server_message(self.everyone_messages, f'User "{username}" just left! Seeya!')
         self.remove_username_from_list(self.everyone_online_users, username)
+
+        if username in self.dm_who_label.text():
+            self.dm_states.setCurrentIndex(0)
 
         # if username not in self.users_not_read:
         if True:
