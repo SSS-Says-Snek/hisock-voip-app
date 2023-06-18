@@ -216,6 +216,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         dm_item.read_messages()
 
     def dm_go_back(self):
+        self.dm_who_label.setText(f"Talking with: ")
         self.dm_states.setCurrentIndex(0)
 
     def send_dm_message(self):
