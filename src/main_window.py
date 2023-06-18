@@ -93,7 +93,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.dm_message_scrollareas_idx = {}
 
         self.set_title_font(self.dm_selection_label, 12)
-        self.set_title_font(self.dm_who_label, 16, True)
+        self.set_title_font(self.dm_who_label, 16, bold=True)
 
         # Signals
         self.everyone_message_to_send.returnPressed.connect(self.send_everyone_message)
@@ -119,6 +119,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client_thread.online_users.connect(self.on_online_users)
         self.client_thread.dm_message.connect(self.on_dm_message)
         self.client_thread.start()
+    
+    # HELPERS
     
     @staticmethod
     def set_title_font(label: QLabel, size: int, bold: bool = False):
@@ -190,6 +192,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         messages.addWidget(
             Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message)
         )
+
+    # ACTIONS
 
     def send_everyone_message(self):
         text = self.everyone_message_to_send.text()

@@ -1,7 +1,15 @@
-from PyQt6.QtCore import Qt
+"""
+This file is a part of the source code for hisock-voip-app
+This project has been licensed under the MIT license.
+Copyright (c) 2022-present SSS-Says-Snek
+"""
 
-from PyQt6.QtWidgets import QWidget, QLabel, QHBoxLayout
-from PyQt6.QtGui import QPainter, QPaintEvent, QBrush, QColor
+from __future__ import annotations
+
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QBrush, QColor, QPainter, QPaintEvent
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
+
 
 class UnreadNotif(QLabel):
     def __init__(self, radius: int, parent=None, *args, **kwargs):
@@ -21,7 +29,7 @@ class DMListItem(QWidget):
 
         self.username = username
         self.unread_notif = UnreadNotif(15, self, "0")
-        
+
         unread_sizepolicy = self.unread_notif.sizePolicy()
         unread_sizepolicy.setRetainSizeWhenHidden(True)
         self.unread_notif.setSizePolicy(unread_sizepolicy)
@@ -32,12 +40,12 @@ class DMListItem(QWidget):
 
         layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         self.setLayout(layout)
-    
+
     def new_unread(self):
         num_unreads = int(self.unread_notif.text()) + 1
         self.unread_notif.setText(str(num_unreads))
         self.unread_notif.show()
-    
+
     def read_messages(self):
         self.unread_notif.setText("0")
         self.unread_notif.hide()
