@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
                              QScrollArea, QVBoxLayout, QWidget)
 
 from src.ui.custom.message import Message
+from src.ui.custom.dm_list_item import DMListItem
 from src.ui.generated.main_ui import Ui_MainWindow
 
 
@@ -121,13 +122,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client_thread.start()
     
     @staticmethod
-    def find_username_from_list(online_users: QListWidget, username: str):
-        return online_users.row(online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0])
-
-    def remove_username_from_list(self, online_users: QListWidget, username: str):
-        online_users.takeItem(self.find_username_from_list(online_users, username))
-
-    @staticmethod
     def set_title_font(label: QLabel, size: int, bold: bool = False):
         font = QFont("Segoe UI", size)
         if bold:
@@ -135,26 +129,59 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         label.setFont(font)
     
-    def send_server_message(self, messages: QVBoxLayout, message: str, time: Optional[datetime] = None):
-        messages.addWidget(
-            Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message)
-        )
+    def add_dm_selection(self, username: str):
+        item = QListWidgetItem()
+        thing = DMListItem(username)
+        item.setSizeHint(thing.sizeHint())
 
-
+        self.dm_online_users.addItem(item)
+        self.dm_online_users.setItemWidget(item, thing)
+    
     def add_messagebox(self, username: str):
-        dm_scrollarea_widget = QScrollArea()
+        dm_scrollarea = QScrollArea()
         dm_messages_widget = QWidget()
         dm_messages = QVBoxLayout()
         dm_messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        self.dm_message_scrollareas.addWidget(dm_scrollarea_widget)
-        dm_scrollarea_widget.setWidget(dm_messages_widget)
-        dm_scrollarea_widget.setLayout(dm_messages)
+        dm_scrollarea.setWidgetResizable(True)
+
+        dm_messages_widget.setLayout(dm_messages)
+        dm_scrollarea.setWidget(dm_messages_widget)
+        self.dm_message_scrollareas.addWidget(dm_scrollarea)
 
         self.dm_messageboxes[username] = dm_messages
         self.dm_message_scrollareas_idx[username] = len(self.dm_message_scrollareas) - 1
 
         self.send_server_message(dm_messages, "Looks like there's no messages between you two yet!")
+
+    def remove_username_from_list(self, online_users: QListWidget, username: str):
+        online_users.takeItem(online_users.row(online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0]))
+    
+    def find_dm_selection(self, username: str) -> Optional[tuple[int, DMListItem]]:
+        for i in range(self.dm_online_users.count()):
+            item = self.dm_online_users.item(i)
+
+            # AAAAAAAAAAAA
+            dm_item: DMListItem = self.dm_online_users.itemWidget(item) # type: ignore  
+            if dm_item.username == username:
+                return i, dm_item
+    
+    def remove_dm_selection(self, username: str):
+        dm_item = self.find_dm_selection(username)
+        if dm_item is None:
+            return
+
+        i, dm_item = dm_item
+        if dm_item.username == username:
+            self.dm_online_users.takeItem(i)
+    
+    def current_dm_username(self):
+        return self.dm_who_label.text().removeprefix("Talking with: ")
+    
+    def send_server_message(self, messages: QVBoxLayout, message: str, time: Optional[datetime] = None):
+        messages.addWidget(
+            Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message)
+        )
 
     def scroll_change(self):
         self.scrollarea_vbar.setValue(self.scrollarea_vbar.maximum())
@@ -170,13 +197,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.everyone_message_to_send.clear()
 
     def dm_selection(self, item: QListWidgetItem):
-        username = item.text()
+        dm_item: DMListItem = self.dm_online_users.itemWidget(item)  # type: ignore
+        if dm_item is None:
+            return
+        username = dm_item.username
 
         self.dm_states.setCurrentIndex(1)
         self.dm_message_scrollareas.setCurrentIndex(self.dm_message_scrollareas_idx[username])
 
         self.dm_who_label.setText(f"Talking with: {username}")
         self.set_title_font(self.dm_who_label, 16, True)
+        
+        dm_item.read_messages()
 
     def dm_go_back(self):
         self.dm_states.setCurrentIndex(0)
@@ -186,7 +218,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         if text == "" or text.isspace():
             return
 
-        recipient = self.dm_who_label.text().removeprefix("Talking with: ")
+        recipient = self.current_dm_username()
         dm_messages = self.dm_messageboxes[recipient]
 
         dm_messages.addWidget(Message("You", datetime.now().strftime(self.TIME_FMT), text))
@@ -204,10 +236,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.send_server_message(self.everyone_messages, f'New user "{username}" just joined! Say hi!')
         self.everyone_online_users.addItem(username)
 
-        item = QListWidgetItem(username)
-        item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.dm_online_users.addItem(item)
-
+        self.add_dm_selection(username)
         self.add_messagebox(username)
 
     def on_client_leave(self, username: str):
@@ -219,7 +248,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # if username not in self.users_not_read:
         if True:
-            self.remove_username_from_list(self.dm_online_users, username)
+            self.remove_dm_selection(username)
 
             self.dm_message_scrollareas.removeWidget(
                 self.dm_message_scrollareas.widget(self.dm_message_scrollareas_idx[username])
@@ -251,6 +280,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         time_sent_str = time_sent.strftime(self.TIME_FMT)
         dm_messages.addWidget(Message(username, time_sent_str, message))
 
+        dm_item = self.find_dm_selection(username)
+        if dm_item is not None and self.current_dm_username() != username:
+            _, dm_item = dm_item
+            dm_item.new_unread()
+
     def on_online_users(self, online_users: list[str]):
         for online_user in online_users:
             # No self for DMs (I mean, yeah)
@@ -260,8 +294,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             else:
                 self.everyone_online_users.addItem(online_user)
 
-            item = QListWidgetItem(online_user)
-            item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.dm_online_users.addItem(item)
+            self.add_dm_selection(online_user)
 
             self.add_messagebox(online_user)
