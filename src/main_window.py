@@ -13,7 +13,7 @@ from hisock import HiSockClient
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
-                             QScrollArea, QVBoxLayout, QWidget)
+                             QScrollArea, QVBoxLayout, QWidget, QScrollBar)
 
 from src.ui.custom.message import Message
 from src.ui.custom.dm_list_item import DMListItem
@@ -105,8 +105,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.dm_message_to_send.returnPressed.connect(self.send_dm_message)
         self.dm_send_button.clicked.connect(self.send_dm_message)
 
-        self.scrollarea_vbar = self.everyone_message_scrollarea.verticalScrollBar()
-        self.scrollarea_vbar.rangeChanged.connect(self.scroll_change)
+        self.register_scrollbar(self.everyone_message_scrollarea)
 
         # soon
         # self.users_not_read = []
@@ -129,6 +128,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         label.setFont(font)
     
+    @staticmethod
+    def scroll_change(vbar: QScrollBar):
+        vbar.setValue(vbar.maximum())
+
+    def register_scrollbar(self, scrollarea: QScrollArea):
+        scrollarea_vbar = scrollarea.verticalScrollBar()
+        scrollarea_vbar.rangeChanged.connect(lambda: self.scroll_change(scrollarea_vbar))
+    
     def add_dm_selection(self, username: str):
         item = QListWidgetItem()
         thing = DMListItem(username)
@@ -144,6 +151,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         dm_messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         dm_scrollarea.setWidgetResizable(True)
+        self.register_scrollbar(dm_scrollarea)
 
         dm_messages_widget.setLayout(dm_messages)
         dm_scrollarea.setWidget(dm_messages_widget)
@@ -182,9 +190,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         messages.addWidget(
             Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message)
         )
-
-    def scroll_change(self):
-        self.scrollarea_vbar.setValue(self.scrollarea_vbar.maximum())
 
     def send_everyone_message(self):
         text = self.everyone_message_to_send.text()
