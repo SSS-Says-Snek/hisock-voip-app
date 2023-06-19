@@ -23,22 +23,12 @@ except ImportError:
     print("We use isort to format code. Please install it with 'pip install isort'")
     raise SystemExit
 
-HEADER_TEXT = '''"""
-This file is a part of the source code for hisock-voip-app
+PROJECT_NAME = "hisock-voip-app"
+HEADER_TEXT = f'''"""
+This file is a part of the source code for {PROJECT_NAME}
 This project has been licensed under the MIT license.
 Copyright (c) 2022-present SSS-Says-Snek
 '''
-
-
-class DummyPrinter:
-    def success(self, msg):
-        pass
-
-    def error(self, msg):
-        pass
-
-    def diff_line(self, line):
-        pass
 
 
 def check_header_string():
@@ -59,20 +49,6 @@ def check_header_string():
 
     if not added_header:
         print("No files without headers!")
-
-
-def check_imports():
-    reorganized_imports = False
-    isort.api.create_terminal_printer = lambda *args, **kwargs: DummyPrinter()
-
-    for filepath in glob.iglob("**/*.py", recursive=True):
-        file = pathlib.Path(os.getcwd(), filepath)
-        if isort.file(file):
-            reorganized_imports = True
-            print("Reorganized import:", filepath)
-
-    if not reorganized_imports:
-        print("No imports in need of reorganizing!")
 
 
 def cleanup_code():
@@ -101,10 +77,6 @@ def cleanup_code():
         stdout=subprocess.DEVNULL,
     )
     print("Done!")
-
-    # What is going on
-    # print("\n====================== Reorganizing imports ======================")
-    # check_imports()
 
 
 if __name__ == "__main__":

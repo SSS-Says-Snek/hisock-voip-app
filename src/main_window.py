@@ -6,6 +6,8 @@ Copyright (c) 2022-present SSS-Says-Snek
 
 from __future__ import annotations
 
+import os
+
 from datetime import datetime
 from typing import Optional
 
@@ -13,10 +15,10 @@ from hisock import HiSockClient
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
-                             QScrollArea, QVBoxLayout, QWidget, QScrollBar)
+                             QScrollArea, QScrollBar, QVBoxLayout, QWidget)
 
-from src.ui.custom.message import Message
 from src.ui.custom.dm_list_item import DMListItem
+from src.ui.custom.message import Message
 from src.ui.generated.main_ui import Ui_MainWindow
 
 
@@ -85,10 +87,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # UI setup and widget overrides
         self.setupUi(self)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.everyone_messages = QVBoxLayout()
         self.everyone_message_widget.setLayout(self.everyone_messages)
         self.everyone_messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        self.frame_bar.setStyleSheet(f"background-color: {os.environ['QTMATERIAL_SECONDARYCOLOR']};")
+        self.minimize_button.setStyleSheet("color: white; border-color: transparent;")
+        self.x_button.setStyleSheet("color: white; border-color: transparent;")
+
+        # DM selections
         self.dm_messageboxes = {}
         self.dm_message_scrollareas_idx = {}
 
@@ -96,6 +104,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.set_title_font(self.dm_who_label, 16, bold=True)
 
         # Signals
+        self.minimize_button.clicked.connect(self.showMinimized)
+        self.x_button.clicked.connect(self.actual_close)
+
         self.everyone_message_to_send.returnPressed.connect(self.send_everyone_message)
         self.everyone_send_button.clicked.connect(self.send_everyone_message)
 
@@ -119,9 +130,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client_thread.online_users.connect(self.on_online_users)
         self.client_thread.dm_message.connect(self.on_dm_message)
         self.client_thread.start()
-    
+
     # HELPERS
-    
+
     @staticmethod
     def set_title_font(label: QLabel, size: int, bold: bool = False):
         font = QFont("Segoe UI", size)
@@ -129,7 +140,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             font.setBold(True)
 
         label.setFont(font)
-    
+
     @staticmethod
     def scroll_change(vbar: QScrollBar):
         vbar.setValue(vbar.maximum())
@@ -137,7 +148,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def register_scrollbar(self, scrollarea: QScrollArea):
         scrollarea_vbar = scrollarea.verticalScrollBar()
         scrollarea_vbar.rangeChanged.connect(lambda: self.scroll_change(scrollarea_vbar))
-    
+
     def add_dm_selection(self, username: str):
         item = QListWidgetItem()
         thing = DMListItem(username)
@@ -145,7 +156,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.dm_online_users.addItem(item)
         self.dm_online_users.setItemWidget(item, thing)
-    
+
     def add_messagebox(self, username: str):
         dm_scrollarea = QScrollArea()
         dm_messages_widget = QWidget()
@@ -166,16 +177,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def remove_username_from_list(self, online_users: QListWidget, username: str):
         online_users.takeItem(online_users.row(online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0]))
-    
+
     def find_dm_selection(self, username: str) -> Optional[tuple[int, DMListItem]]:
         for i in range(self.dm_online_users.count()):
             item = self.dm_online_users.item(i)
 
             # AAAAAAAAAAAA
-            dm_item: DMListItem = self.dm_online_users.itemWidget(item) # type: ignore  
+            dm_item: DMListItem = self.dm_online_users.itemWidget(item)  # type: ignore
             if dm_item.username == username:
                 return i, dm_item
-    
+
     def remove_dm_selection(self, username: str):
         dm_item = self.find_dm_selection(username)
         if dm_item is None:
@@ -184,14 +195,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         i, dm_item = dm_item
         if dm_item.username == username:
             self.dm_online_users.takeItem(i)
-    
+
     def current_dm_username(self):
         return self.dm_who_label.text().removeprefix("Talking with: ")
-    
+
     def send_server_message(self, messages: QVBoxLayout, message: str, time: Optional[datetime] = None):
         messages.addWidget(
             Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message)
         )
+    
+    def actual_close(self):
+        self.close()
 
     # ACTIONS
 
@@ -216,7 +230,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.dm_who_label.setText(f"Talking with: {username}")
         self.set_title_font(self.dm_who_label, 16, True)
-        
+
         dm_item.read_messages()
 
     def dm_go_back(self):
@@ -274,7 +288,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.discriminator = discriminator
         self.username = f"{self.name}#{self.discriminator:04}"
 
-        self.setWindowTitle(f"{self.windowTitle()} (Logged in as {self.username})")
+        # self.logged_in_as.setStyleSheet("font-weight: bold;")
+        self.logged_in_as.setText(f"Logged in as: {self.username}")
 
         self.everyone_messages.addWidget(
             Message(
