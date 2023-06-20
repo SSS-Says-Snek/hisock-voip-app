@@ -7,15 +7,14 @@ Copyright (c) 2022-present SSS-Says-Snek
 from __future__ import annotations
 
 import os
-
 from datetime import datetime
 from typing import Optional
 
 from hisock import HiSockClient
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint
+from PyQt6.QtCore import QPoint, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont, QMouseEvent
 from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
-                             QScrollArea, QScrollBar, QVBoxLayout, QWidget)
+                             QScrollArea, QScrollBar, QVBoxLayout, QWidget, QFrame)
 
 from src.ui.custom.dm_list_item import DMListItem
 from src.ui.custom.message import Message
@@ -88,9 +87,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # UI setup and widget overrides
         self.setupUi(self)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.everyone_messages = QVBoxLayout()
+        self.everyone_messages = QVBoxLayout(self.everyone_message_widget)
         self.everyone_message_widget.setLayout(self.everyone_messages)
         self.everyone_messages.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        self.everyone_messages.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
+        self.everyone_message_scrollarea.setStyleSheet("border: 1px solid;")
 
         # idk
         self.window_drag_pos = QPoint()
@@ -106,6 +108,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.set_title_font(self.dm_selection_label, 12)
         self.set_title_font(self.dm_who_label, 16, bold=True)
+        self.set_title_font(self.voip_selection_label, 12)
 
         # Signals
         self.frame_bar.mousePressEvent = self.framebar_mousepress
@@ -150,7 +153,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     @staticmethod
     def scroll_change(vbar: QScrollBar):
-        vbar.setValue(vbar.maximum())
+        # vbar.setValue(vbar.maximum())
+        pass
 
     def register_scrollbar(self, scrollarea: QScrollArea):
         scrollarea_vbar = scrollarea.verticalScrollBar()
@@ -208,9 +212,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def send_server_message(self, messages: QVBoxLayout, message: str, time: Optional[datetime] = None):
         messages.addWidget(
-            Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message)
+            QFrame(Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message))
         )
-    
+
     def actual_close(self):
         self.close()
 
@@ -222,11 +226,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def move_window(self, a0: QMouseEvent):
         if self.isMaximized():
-           self.showNormal()
+            self.showNormal()
         else:
             if a0.buttons() == Qt.MouseButton.LeftButton:
                 # y
-                last_pos = self.window_drag_pos + self.mapToGlobal(a0.pos()) - self.mouse_original_pos # type: ignore
+                last_pos = self.window_drag_pos + self.mapToGlobal(a0.pos()) - self.mouse_original_pos  # type: ignore
                 self.move(last_pos)
                 a0.accept()
 

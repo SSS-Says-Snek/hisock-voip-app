@@ -65,7 +65,7 @@ class Message(QWidget):
 
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
 
-        self.username_label = QLabel(self.username)
+        self.username_label = QLabel(self.username, self)
         self.username_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
         self.message_label = QLabel(self.message, self)
@@ -87,7 +87,7 @@ class Message(QWidget):
         layout.addWidget(self.username_label, 0, 0)
         layout.setColumnStretch(0, 1)
 
-        time = QLabel(time_sent_str)
+        time = QLabel(time_sent_str, self)
         time.setObjectName("time")
         layout.addWidget(time, 0, 1)
 
