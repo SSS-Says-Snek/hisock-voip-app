@@ -12,8 +12,8 @@ from datetime import datetime
 from typing import Optional
 
 from hisock import HiSockClient
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QPoint
+from PyQt6.QtGui import QFont, QMouseEvent
 from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
                              QScrollArea, QScrollBar, QVBoxLayout, QWidget)
 
@@ -92,6 +92,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.everyone_message_widget.setLayout(self.everyone_messages)
         self.everyone_messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        # idk
+        self.window_drag_pos = QPoint()
+        self.mouse_original_pos = QPoint()
+
         self.frame_bar.setStyleSheet(f"background-color: {os.environ['QTMATERIAL_SECONDARYCOLOR']};")
         self.minimize_button.setStyleSheet("color: white; border-color: transparent;")
         self.x_button.setStyleSheet("color: white; border-color: transparent;")
@@ -104,6 +108,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.set_title_font(self.dm_who_label, 16, bold=True)
 
         # Signals
+        self.frame_bar.mousePressEvent = self.framebar_mousepress
+        self.frame_bar.mouseMoveEvent = self.move_window
+
         self.minimize_button.clicked.connect(self.showMinimized)
         self.x_button.clicked.connect(self.actual_close)
 
@@ -208,6 +215,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.close()
 
     # ACTIONS
+
+    def framebar_mousepress(self, a0: QMouseEvent):
+        self.window_drag_pos = self.pos()
+        self.mouse_original_pos = self.mapToGlobal(a0.pos())
+
+    def move_window(self, a0: QMouseEvent):
+        if self.isMaximized():
+           self.showNormal()
+        else:
+            if a0.buttons() == Qt.MouseButton.LeftButton:
+                # y
+                last_pos = self.window_drag_pos + self.mapToGlobal(a0.pos()) - self.mouse_original_pos # type: ignore
+                self.move(last_pos)
+                a0.accept()
 
     def send_everyone_message(self):
         text = self.everyone_message_to_send.text()
