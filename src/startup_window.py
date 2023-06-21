@@ -11,16 +11,16 @@ from typing import Optional
 
 from hisock import HiSockClient
 from hisock.utils import ServerNotRunning
-from PyQt6.QtCore import QThread, pyqtSignal
-from PyQt6.QtWidgets import QDialog, QLabel
+from PySide6.QtCore import QThread, Signal
+from PySide6.QtWidgets import QDialog, QLabel
 
 from src.main_window import MainWindow
 from src.ui.generated.startup_dialog import Ui_Dialog
 
 
 class ConnectWorker(QThread):
-    failed = pyqtSignal()
-    succeeded = pyqtSignal(HiSockClient)
+    failed = Signal()
+    succeeded = Signal(HiSockClient)
 
     def __init__(self, ip: str, port: str, username: str, parent=None):
         super().__init__(parent)

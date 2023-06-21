@@ -6,10 +6,10 @@ Copyright (c) 2022-present SSS-Says-Snek
 
 from __future__ import annotations
 
-from PyQt6.QtCore import QRectF, Qt
-from PyQt6.QtGui import (QBrush, QColor, QFontMetrics, QPainter, QPainterPath,
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import (QBrush, QColor, QFontMetrics, QPainter, QPainterPath,
                          QPaintEvent)
-from PyQt6.QtWidgets import (QGridLayout, QHBoxLayout, QLabel, QSizePolicy,
+from PySide6.QtWidgets import (QGridLayout, QHBoxLayout, QLabel, QSizePolicy,
                              QStyle, QStyleOption, QTextEdit, QVBoxLayout,
                              QWidget)
 

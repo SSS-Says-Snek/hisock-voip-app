@@ -11,9 +11,9 @@ from datetime import datetime
 from typing import Optional
 
 from hisock import HiSockClient
-from PyQt6.QtCore import QPoint, Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont, QMouseEvent
-from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
+from PySide6.QtCore import QPoint, Qt, QThread, Signal
+from PySide6.QtGui import QFont, QMouseEvent
+from PySide6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
                              QScrollArea, QScrollBar, QVBoxLayout, QWidget, QFrame)
 
 from src.ui.custom.dm_list_item import DMListItem
@@ -22,12 +22,12 @@ from src.ui.generated.main_ui import Ui_MainWindow
 
 
 class QThreadedHiSockClient(QThread):
-    everyone_message = pyqtSignal(str, datetime, str)
-    client_join = pyqtSignal(str)
-    client_leave = pyqtSignal(str)
-    discriminator = pyqtSignal(int)
-    online_users = pyqtSignal(list)
-    dm_message = pyqtSignal(str, datetime, str)
+    everyone_message = Signal(str, datetime, str)
+    client_join = Signal(str)
+    client_leave = Signal(str)
+    discriminator = Signal(int)
+    online_users = Signal(list)
+    dm_message = Signal(str, datetime, str)
 
     def __init__(self, client: HiSockClient, name: str):
         super().__init__()
@@ -71,6 +71,9 @@ class QThreadedHiSockClient(QThread):
 
     def run(self):
         self.client.start()
+    
+    def stop(self):
+        self.client.close()
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -182,7 +185,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.dm_message_scrollareas.addWidget(dm_scrollarea)
 
         self.dm_messageboxes[username] = dm_messages
-        self.dm_message_scrollareas_idx[username] = len(self.dm_message_scrollareas) - 1
+        self.dm_message_scrollareas_idx[username] = self.dm_message_scrollareas.count() - 1
 
         self.send_server_message(dm_messages, "Looks like there's no messages between you two yet!")
 
@@ -216,23 +219,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         )
 
     def actual_close(self):
+        self.client_thread.stop()
+        self.client_thread.quit()
+
         self.close()
 
     # ACTIONS
 
-    def framebar_mousepress(self, a0: QMouseEvent):
+    def framebar_mousepress(self, event: QMouseEvent):
         self.window_drag_pos = self.pos()
-        self.mouse_original_pos = self.mapToGlobal(a0.pos())
+        self.mouse_original_pos = self.mapToGlobal(event.pos())
 
-    def move_window(self, a0: QMouseEvent):
+    def move_window(self, event: QMouseEvent):
         if self.isMaximized():
             self.showNormal()
         else:
-            if a0.buttons() == Qt.MouseButton.LeftButton:
+            if event.buttons() == Qt.MouseButton.LeftButton:
                 # y
-                last_pos = self.window_drag_pos + self.mapToGlobal(a0.pos()) - self.mouse_original_pos  # type: ignore
+                last_pos = self.window_drag_pos + self.mapToGlobal(event.pos()) - self.mouse_original_pos  # type: ignore
                 self.move(last_pos)
-                a0.accept()
+                event.accept()
 
     def send_everyone_message(self):
         text = self.everyone_message_to_send.text()

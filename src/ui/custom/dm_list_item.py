@@ -6,9 +6,9 @@ Copyright (c) 2022-present SSS-Says-Snek
 
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPaintEvent
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QBrush, QColor, QPainter, QPaintEvent
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 
 class UnreadNotif(QLabel):
