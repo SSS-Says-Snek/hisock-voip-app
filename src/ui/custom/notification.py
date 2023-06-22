@@ -13,6 +13,7 @@ class AcknowledgeNotif(QWidget):
         self.ok_button = QPushButton("Okay", self)
         self.ok_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.ok_button.setStyleSheet("background-color: transparent;")
+        self.ok_button.clicked.connect(self.ok)
 
         self.setFixedWidth(width)
         self.setFixedHeight(self.height() + 40)
@@ -36,3 +37,6 @@ class AcknowledgeNotif(QWidget):
         painter.setClipPath(path)
 
         painter.fillPath(path, painter.brush())
+    
+    def ok(self):
+        self.deleteLater()
