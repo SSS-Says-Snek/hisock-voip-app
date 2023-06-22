@@ -27,7 +27,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>2</number>
+     <number>1</number>
     </property>
     <widget class="QWidget" name="everyone_message">
      <attribute name="title">
@@ -140,7 +140,7 @@
        </rect>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <widget class="QWidget" name="dm_user_selection">
        <layout class="QVBoxLayout" name="verticalLayout">
@@ -293,7 +293,7 @@
        <number>0</number>
       </property>
       <widget class="QWidget" name="voip_user_selection">
-       <widget class="QWidget" name="">
+       <widget class="QWidget" name="layoutWidget">
         <property name="geometry">
          <rect>
           <x>1</x>
@@ -441,8 +441,8 @@
      <rect>
       <x>0</x>
       <y>0</y>
-      <width>801</width>
-      <height>31</height>
+      <width>800</width>
+      <height>30</height>
      </rect>
     </property>
     <widget class="QLabel" name="logged_in_as">
@@ -450,8 +450,8 @@
       <rect>
        <x>14</x>
        <y>5</y>
-       <width>691</width>
-       <height>21</height>
+       <width>690</width>
+       <height>20</height>
       </rect>
      </property>
      <property name="text">
@@ -463,8 +463,8 @@
       <rect>
        <x>710</x>
        <y>0</y>
-       <width>31</width>
-       <height>31</height>
+       <width>30</width>
+       <height>30</height>
       </rect>
      </property>
      <property name="text">
@@ -476,8 +476,8 @@
       <rect>
        <x>760</x>
        <y>0</y>
-       <width>31</width>
-       <height>31</height>
+       <width>30</width>
+       <height>30</height>
       </rect>
      </property>
      <property name="text">

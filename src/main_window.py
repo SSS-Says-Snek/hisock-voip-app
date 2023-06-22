@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
 
 from src.ui.custom.dm_list_item import DMListItem
 from src.ui.custom.message import Message
+from src.ui.custom.notification import AcknowledgeNotif
 from src.ui.generated.main_ui import Ui_MainWindow
 
 
@@ -144,6 +145,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.set_title_font(self.preview_video_label, 20)
         self.set_title_font(self.voip_selection_label, 12)
 
+        self.notifs = []
+        whoa = AcknowledgeNotif("YOOOO YOU SUCK", self.width(), self)
+        whoa.move(0, 35)
+        self.notifs.append(whoa)
+
         # Signals
         self.frame_bar.mousePressEvent = self.framebar_mousepress
         self.frame_bar.mouseMoveEvent = self.move_window
@@ -159,6 +165,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.dm_message_to_send.returnPressed.connect(self.send_dm_message)
         self.dm_send_button.clicked.connect(self.send_dm_message)
+
+        self.start_call_button.clicked.connect(self.start_call)
 
         self.register_scrollbar(self.everyone_message_scrollarea)
 
@@ -321,6 +329,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client.send("send_dm_message", [recipient, text])
 
         self.dm_message_to_send.clear()
+    
+    def start_call(self):
+        self.voip_states.setCurrentIndex(1)
 
     # CLIENT CALLBACKS
 
