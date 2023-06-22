@@ -16,7 +16,7 @@ from src.startup_window import StartupWindow
 
 
 def load_stylesheet(name: str):
-    with open(Path("src") / "styles" / name) as f:
+    with open(Path("src") / "styles" / name, "r") as f:
         style_src = f.read()
         app.setStyleSheet(app.styleSheet() + style_src)
 

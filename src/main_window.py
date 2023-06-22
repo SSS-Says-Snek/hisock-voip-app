@@ -10,9 +10,13 @@ import os
 from datetime import datetime
 from typing import Optional
 
+import cv2 as cv
+import numpy as np
+
 from hisock import HiSockClient
-from PyQt6.QtCore import QPoint, Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont, QMouseEvent
+
+from PyQt6.QtCore import QPoint, Qt, QThread, QObject, pyqtSignal
+from PyQt6.QtGui import QFont, QMouseEvent, QImage, QPixmap
 from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
                              QScrollArea, QScrollBar, QVBoxLayout, QWidget, QFrame)
 
@@ -73,6 +77,33 @@ class QThreadedHiSockClient(QThread):
         self.client.start()
 
 
+class VideoCapWorker(QObject):
+    frame = pyqtSignal(np.ndarray)
+
+    def __init__(self):
+        super().__init__()
+
+        self.cap = cv.VideoCapture(0)
+        if not self.cap:
+            # Hang on
+            pass
+
+        self.running = True
+            
+    def run(self):
+        while self.running:
+            ret, frame = self.cap.read()
+            if not ret:
+                # Hang on
+                break
+            self.frame.emit(frame)
+    
+    def finish(self):
+        self.cap.release()
+        self.running = False
+            
+
+
 class MainWindow(QMainWindow, Ui_MainWindow):
     TIME_FMT = "%I:%M %p, %m/%d/%Y"
 
@@ -92,7 +123,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.everyone_messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.everyone_messages.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
-        self.everyone_message_scrollarea.setStyleSheet("border: 1px solid;")
+        # self.everyone_message_scrollarea.setStyleSheet("border: 1px solid;")
+
+        # self.preview_frame.setStyleSheet("border: 2px solid;")
 
         # idk
         self.window_drag_pos = QPoint()
@@ -108,6 +141,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.set_title_font(self.dm_selection_label, 12)
         self.set_title_font(self.dm_who_label, 16, bold=True)
+        self.set_title_font(self.preview_video_label, 20)
         self.set_title_font(self.voip_selection_label, 12)
 
         # Signals
@@ -140,6 +174,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client_thread.online_users.connect(self.on_online_users)
         self.client_thread.dm_message.connect(self.on_dm_message)
         self.client_thread.start()
+
+        # Video Cap thread setup
+        self.video_cap_worker = VideoCapWorker()
+        self.video_cap_thread = QThread()
+        self.video_cap_worker.moveToThread(self.video_cap_thread)
+
+        self.video_cap_thread.started.connect(self.video_cap_worker.run)
+        self.video_cap_thread.finished.connect(self.video_cap_worker.finish)
+        self.video_cap_worker.frame.connect(self.on_video_frame)
+
+        self.video_cap_thread.start()
+
 
     # HELPERS
 
@@ -212,10 +258,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def send_server_message(self, messages: QVBoxLayout, message: str, time: Optional[datetime] = None):
         messages.addWidget(
-            QFrame(Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message))
+            Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message)
         )
 
     def actual_close(self):
+        self.video_cap_worker.finish()
         self.close()
 
     # ACTIONS
@@ -287,6 +334,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.add_dm_selection(username)
         self.add_messagebox(username)
+        self.voip_online_users.addItem(username)
 
     def on_client_leave(self, username: str):
         self.send_server_message(self.everyone_messages, f'User "{username}" just left! Seeya!')
@@ -305,6 +353,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             del self.dm_messageboxes[username]
             del self.dm_message_scrollareas_idx[username]
+
+            self.voip_online_users.removeItem(
+                self.voip_online_users.findText(username)
+            )
         else:
             dm_user = self.dm_online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0]
             dm_user.setText(dm_user.text() + " (left)")
@@ -345,5 +397,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 self.everyone_online_users.addItem(online_user)
 
             self.add_dm_selection(online_user)
-
             self.add_messagebox(online_user)
+            self.voip_online_users.addItem(online_user)
+    
+    def on_video_frame(self, frame: np.ndarray):
+        height, width = frame.shape[:2]
+        image = QImage(
+            frame.data, width, height, QImage.Format.Format_RGB888
+        ).rgbSwapped()
+
+        self.preview_frame.setPixmap(
+            QPixmap.fromImage(image)
+        )
