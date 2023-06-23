@@ -27,7 +27,7 @@
      </rect>
     </property>
     <property name="currentIndex">
-     <number>2</number>
+     <number>0</number>
     </property>
     <widget class="QWidget" name="everyone_message">
      <attribute name="title">
@@ -140,7 +140,7 @@
        </rect>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="dm_user_selection">
        <layout class="QVBoxLayout" name="verticalLayout">
@@ -290,7 +290,7 @@
        </rect>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <widget class="QWidget" name="voip_user_selection">
        <widget class="QWidget" name="layoutWidget">
