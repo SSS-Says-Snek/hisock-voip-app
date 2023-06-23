@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 import cv2 as cv
 import numpy as np
@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
 
 from src.ui.custom.dm_list_item import DMListItem
 from src.ui.custom.message import Message
-from src.ui.custom.notification import AcknowledgeNotif
+from src.ui.custom.notification import AcknowledgeNotif, IncomingCallNotif
 from src.ui.generated.main_ui import Ui_MainWindow
 
 
@@ -33,6 +33,9 @@ class QThreadedHiSockClient(QThread):
     discriminator = pyqtSignal(int)
     online_users = pyqtSignal(list)
     dm_message = pyqtSignal(str, datetime, str)
+    incoming_call = pyqtSignal(str)
+    accepted_call = pyqtSignal(str)
+    video_data = pyqtSignal(bytes)
 
     def __init__(self, client: HiSockClient, name: str):
         super().__init__()
@@ -73,6 +76,18 @@ class QThreadedHiSockClient(QThread):
         def on_recv_dm_message(data: dict):
             time_sent = datetime.fromtimestamp(data["time_sent"])
             self.dm_message.emit(data["username"], time_sent, data["message"])
+        
+        @self.client.on("incoming_call")
+        def on_incoming_call(sender: str):
+            self.incoming_call.emit(sender)
+
+        @self.client.on("accepted_call")
+        def on_accepted_call(sender: str):
+            self.accepted_call.emit(sender)
+        
+        @self.client.on("video_data")
+        def on_video_data(video_data: bytes):
+            self.video_data.emit(video_data)
 
     def run(self):
         self.client.start()
@@ -81,8 +96,10 @@ class QThreadedHiSockClient(QThread):
 class VideoCapWorker(QObject):
     frame = pyqtSignal(np.ndarray)
 
-    def __init__(self):
+    def __init__(self, client: HiSockClient):
         super().__init__()
+
+        self.client = client
 
         self.cap = cv.VideoCapture(0)
         if not self.cap:
@@ -90,6 +107,7 @@ class VideoCapWorker(QObject):
             pass
 
         self.running = True
+        self.calling_someone: Union[bool, str] = False  # Either False or a str representing recipient
             
     def run(self):
         while self.running:
@@ -98,6 +116,11 @@ class VideoCapWorker(QObject):
                 # Hang on
                 break
             self.frame.emit(frame)
+
+            if self.calling_someone:
+                frame_bytes = cv.imencode(".jpg", frame)[1].tobytes()
+
+                self.client.send("video_data", [self.calling_someone, frame_bytes])
     
     def finish(self):
         self.cap.release()
@@ -145,10 +168,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.set_title_font(self.preview_video_label, 20)
         self.set_title_font(self.voip_selection_label, 12)
 
-        self.notifs = []
-        whoa = AcknowledgeNotif("YOOOO YOU SUCK", self.width(), self)
-        whoa.move(0, 35)
-        self.notifs.append(whoa)
+        self.notif = None
+        self.calling = False
 
         # Signals
         self.frame_bar.mousePressEvent = self.framebar_mousepress
@@ -181,10 +202,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client_thread.discriminator.connect(self.on_discriminator)
         self.client_thread.online_users.connect(self.on_online_users)
         self.client_thread.dm_message.connect(self.on_dm_message)
+        self.client_thread.incoming_call.connect(self.on_incoming_call)
+        self.client_thread.accepted_call.connect(self.on_accepted_call)
+        self.client_thread.video_data.connect(self.on_video_data)
         self.client_thread.start()
 
         # Video Cap thread setup
-        self.video_cap_worker = VideoCapWorker()
+        self.video_cap_worker = VideoCapWorker(self.client)
         self.video_cap_thread = QThread()
         self.video_cap_worker.moveToThread(self.video_cap_thread)
 
@@ -239,6 +263,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.dm_message_scrollareas_idx[username] = len(self.dm_message_scrollareas) - 1
 
         self.send_server_message(dm_messages, "Looks like there's no messages between you two yet!")
+    
+    def add_notif(self, notif):
+        if self.active_notif():
+            return
+
+        self.notif = notif
+        self.notif.move(0, 35)
+        self.notif.show()
+    
+    def active_notif(self):
+        return self.notif is not None and not self.notif.closed
 
     def remove_username_from_list(self, online_users: QListWidget, username: str):
         online_users.takeItem(online_users.row(online_users.findItems(username, Qt.MatchFlag.MatchExactly)[0]))
@@ -270,6 +305,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         )
 
     def actual_close(self):
+        if self.notif is not None:
+            self.notif.finish()
+
         self.video_cap_worker.finish()
         self.close()
 
@@ -331,7 +369,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.dm_message_to_send.clear()
     
     def start_call(self):
-        self.voip_states.setCurrentIndex(1)
+        if self.active_notif():
+            return
+
+        recipient = self.voip_online_users.currentText()
+
+        self.add_notif(AcknowledgeNotif(f"Calling {recipient}...", self.width(), 3, self))
+        self.client.send("request_call", self.voip_online_users.currentText())
 
     # CLIENT CALLBACKS
 
@@ -411,6 +455,28 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.add_messagebox(online_user)
             self.voip_online_users.addItem(online_user)
     
+    def on_incoming_call(self, sender: str):
+        if self.active_notif():
+            return
+
+        call_notif = IncomingCallNotif(f"Incoming call from {sender}...", self.width(), self)
+        call_notif.accepted.connect(lambda: self.on_accepted_call(sender))
+        self.add_notif(call_notif)
+    
+    def on_video_data(self, video_data: bytes):
+        frame_np = np.frombuffer(video_data, np.uint8)
+        frame = cv.imdecode(frame_np, cv.IMREAD_COLOR)
+        height, width = frame.shape[:2]
+        image = QImage(
+            frame.data, width, height, QImage.Format.Format_RGB888
+        ).rgbSwapped()
+
+        self.opp_video_label.setPixmap(
+            QPixmap.fromImage(image)
+        )
+
+    # Thing idk
+
     def on_video_frame(self, frame: np.ndarray):
         height, width = frame.shape[:2]
         image = QImage(
@@ -420,3 +486,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.preview_frame.setPixmap(
             QPixmap.fromImage(image)
         )
+    
+    def on_accepted_call(self, original_sender: str):
+        self.voip_states.setCurrentIndex(1)
+        self.client.send("accepted_call", original_sender)
+
+        self.calling = True
+        self.video_cap_worker.calling_someone = original_sender

@@ -82,6 +82,24 @@ def on_dm_message(client_data, data: list):
         recipient, "recv_dm_message", {"username": client_data.name, "message": message, "time_sent": now}
     )
 
+@server.on("request_call")
+def on_request_call(client_data, recipient: str):
+    server.send_client(
+        recipient, "incoming_call", client_data.name
+    )
+
+@server.on("accepted_call")
+def on_accepted_call(client_data, original_sender: str):
+    server.send_client(
+        original_sender, "accepted_call", client_data.name
+    )
+
+@server.on("video_data")
+def on_video_data(client_data, data: list):
+    recipient, frame_data = data
+
+    server.send_client(recipient, "video_data", frame_data)
+
 
 print(f"Starting server at {IP}:{PORT}!")
 server.start()
