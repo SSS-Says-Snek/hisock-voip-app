@@ -128,7 +128,7 @@ class VideoCapWorker(QObject):
 
                 self.client.send("video_data", [self.calling_someone, frame_str])
         
-        print("DONE")
+        print("[DEBUG] Exiting from videocap thread")
         self.done.emit()
     
     def finish(self):
@@ -203,6 +203,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.set_title_font(self.dm_who_label, 16, bold=True)
         self.set_title_font(self.preview_video_label, 20)
         self.set_title_font(self.voip_selection_label, 12)
+        self.set_title_font(self.call_who_label, 16, bold=True)
 
         self.notif = None
         self.calling = False
@@ -335,11 +336,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.video_cap_worker.cleanup()
         self.video_cap_thread.quit()
 
-        print("HI", self.current_call_username())
         if self.close_mode == "actively_ending_call":
             self.client.send("end_call", self.current_call_username())
             self.client.recv("ended_call")
-            print("WOW")
 
             self.client.close()
             self.close()
@@ -525,12 +524,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             frame.data, width, height, QImage.Format.Format_RGB888
         ).rgbSwapped()
 
-        self.preview_frame.setPixmap(
-            QPixmap.fromImage(image)
-        )
+        pixmap = QPixmap.fromImage(image)
+        if not self.calling:
+            self.preview_frame.setPixmap(pixmap)
+        else:
+            self.own_video_label.setPixmap(pixmap)
     
     def on_accepted_call(self, original_sender: str):
-        print("WOW")
         self.voip_states.setCurrentIndex(1)
 
         if self.call_who_label.text() == "Calling: ":
@@ -542,7 +542,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.video_cap_worker.calling_someone = original_sender
     
     def on_end_call(self):
-        print("YO")
         self.video_cap_worker.finish()
         self.close_mode = "recv_ending_call"
         # voip_close will handle the rest

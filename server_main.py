@@ -9,9 +9,9 @@ from __future__ import annotations
 import random
 import time
 
-from hisock import HiSockServer
+from hisock import HiSockServer, get_local_ip
 
-IP = "192.168.1.131"
+IP = get_local_ip()
 PORT = 9999
 
 server = HiSockServer((IP, PORT))
@@ -67,7 +67,7 @@ def on_name_change(_, __, ___):
 
 @server.on("send_everyone_message")
 def on_message(client_data, msg: str):
-    print("wow")
+    print("Everyone message")
 
     # Can't use datetime.now() because hisock can't send arbitrary objects (L pickle)
     now = time.time()
@@ -76,6 +76,7 @@ def on_message(client_data, msg: str):
 
 @server.on("send_dm_message")
 def on_dm_message(client_data, data: list):
+    print("DM message")
     recipient, message = data
 
     now = time.time()
@@ -85,12 +86,14 @@ def on_dm_message(client_data, data: list):
 
 @server.on("request_call")
 def on_request_call(client_data, recipient: str):
+    print(f"Call request from {client_data.name} to {recipient}")
     server.send_client(
         recipient, "incoming_call", client_data.name
     )
 
 @server.on("accepted_call")
 def on_accepted_call(client_data, original_sender: str):
+    print(f"Accepted call between {client_data.name} and {original_sender}!")
     server.send_client(
         original_sender, "accepted_call", client_data.name
     )
@@ -104,11 +107,13 @@ def on_video_data(_, data: list):
         server.send_client(recipient, "video_data", frame_data)
     
 @server.on("end_call")
-def on_end_call(_, recipient: str):
+def on_end_call(client_data, recipient: str):
+    print(f"Requesting to end call between {client_data.name} and {recipient} ({client_data.name} initiated)")
     server.send_client(recipient, "end_call")
 
 @server.on("ended_call")
-def on_ended_call(_, recipient: str):
+def on_ended_call(client_data, recipient: str):
+    print(f"Ended call between {client_data.name} and {recipient} ({recipient} finalized)")
     server.send_client(recipient, "ended_call")
 
 
