@@ -96,12 +96,18 @@ def on_accepted_call(client_data, original_sender: str):
     )
 
 @server.on("video_data")
-def on_video_data(client_data, data: list):
+def on_video_data(_, data: list):
     recipient, frame_data = data
 
     if recipient in online_users:
         print(time.time(), "viddata")
         server.send_client(recipient, "video_data", frame_data)
+    
+@server.on("end_call")
+def on_end_call(client_data, recipient: str):
+    server.send_client(recipient, "end_call")
+    server.recv("ended_call")
+    server.send_client(client_data, "ended_call")
 
 
 print(f"Starting server at {IP}:{PORT}!")

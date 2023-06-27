@@ -1,5 +1,8 @@
 PyQt6
 qt-material
 
+opencv-python
+sounddevice
+
 # For now
 git+https://github.com/SSS-Says-Snek/hisock
