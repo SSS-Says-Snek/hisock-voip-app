@@ -185,7 +185,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.frame_bar.mouseMoveEvent = self.move_window
 
         self.minimize_button.clicked.connect(self.showMinimized)
-        self.x_button.clicked.connect(self.actual_close)
+        self.x_button.clicked.connect(self.video_cap_worker.finish)
 
         self.everyone_message_to_send.returnPressed.connect(self.send_everyone_message)
         self.everyone_send_button.clicked.connect(self.send_everyone_message)
@@ -223,7 +223,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.video_cap_worker.moveToThread(self.video_cap_thread)
 
         self.video_cap_thread.started.connect(self.video_cap_worker.run)
-        self.video_cap_thread.finished.connect(self.video_cap_worker.cleanup)
+        self.video_cap_thread.finished.connect(self.actual_close)
         self.video_cap_worker.frame.connect(self.on_video_frame)
 
         self.video_cap_thread.start()
@@ -320,12 +320,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def actual_close(self):
         if self.notif is not None:
             self.notif.finish()
+        
+        self.video_cap_worker.cleanup()
 
-        self.video_cap_worker.finish()
-        self.video_cap_thread.wait()
-
-        self.client.send("end_call", self.current_call_username())
-        self.client.recv("ended_call")
+        if self.video_cap_worker.calling_someone:
+            self.client.send("end_call", self.current_call_username())
+            self.client.recv("ended_call")
 
         self.client.close()
         self.close()
@@ -517,4 +517,4 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.video_cap_worker.finish()
         self.video_cap_thread.wait()
 
-        self.client.send("ended_call")
+        self.client.send("ended_call", self.current_call_username())

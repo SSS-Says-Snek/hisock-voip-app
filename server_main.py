@@ -104,10 +104,12 @@ def on_video_data(_, data: list):
         server.send_client(recipient, "video_data", frame_data)
     
 @server.on("end_call")
-def on_end_call(client_data, recipient: str):
+def on_end_call(_, recipient: str):
     server.send_client(recipient, "end_call")
-    server.recv("ended_call")
-    server.send_client(client_data, "ended_call")
+
+@server.on("ended_call")
+def on_ended_call(_, recipient: str):
+    server.send_client(recipient, "ended_call")
 
 
 print(f"Starting server at {IP}:{PORT}!")
