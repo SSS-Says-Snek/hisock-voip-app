@@ -100,6 +100,7 @@ class QThreadedHiSockClient(QThread):
 
 class VideoCapWorker(QObject):
     frame = pyqtSignal(np.ndarray)
+    done = pyqtSignal()
 
     def __init__(self, client: HiSockClient):
         super().__init__()
@@ -128,6 +129,7 @@ class VideoCapWorker(QObject):
                 self.client.send("video_data", [self.calling_someone, frame_str])
         
         print("DONE")
+        self.done.emit()
     
     def finish(self):
         self.running = False
@@ -180,8 +182,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.video_cap_worker.moveToThread(self.video_cap_thread)
 
         self.video_cap_thread.started.connect(self.video_cap_worker.run)
-        self.video_cap_thread.finished.connect(self.voip_close)
         self.video_cap_worker.frame.connect(self.on_video_frame)
+        self.video_cap_worker.done.connect(self.voip_close)
 
         self.video_cap_thread.start()
 
@@ -319,18 +321,22 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def normal_close(self):
         if self.notif is not None:
             self.notif.finish()
-        
-        self.video_cap_worker.cleanup()
 
         if self.video_cap_worker.calling_someone:
             self.video_cap_worker.finish()
         else:
+            self.video_cap_worker.cleanup()
             self.client.close()
             self.close()
     
     def voip_close(self):
+        self.video_cap_worker.cleanup()
+        self.video_cap_thread.quit()
+
+        print("HI")
         self.client.send("end_call", self.current_call_username())
         self.client.recv("ended_call")
+        print("WOW")
 
         self.client.close()
         self.close()
