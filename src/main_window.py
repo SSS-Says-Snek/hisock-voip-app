@@ -160,6 +160,31 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # self.preview_frame.setStyleSheet("border: 2px solid;")
 
+        # Client thread setup
+        self.client_thread = QThreadedHiSockClient(client, name)
+        self.client_thread.everyone_message.connect(self.on_everyone_message)
+        self.client_thread.client_join.connect(self.on_client_join)
+        self.client_thread.client_leave.connect(self.on_client_leave)
+        self.client_thread.discriminator.connect(self.on_discriminator)
+        self.client_thread.online_users.connect(self.on_online_users)
+        self.client_thread.dm_message.connect(self.on_dm_message)
+        self.client_thread.incoming_call.connect(self.on_incoming_call)
+        self.client_thread.accepted_call.connect(self.on_accepted_call)
+        self.client_thread.video_data.connect(self.on_video_data)
+        self.client_thread.end_call.connect(self.on_end_call)
+        self.client_thread.start()
+
+        # Video Cap thread setup
+        self.video_cap_worker = VideoCapWorker(self.client)
+        self.video_cap_thread = QThread()
+        self.video_cap_worker.moveToThread(self.video_cap_thread)
+
+        self.video_cap_thread.started.connect(self.video_cap_worker.run)
+        self.video_cap_thread.finished.connect(self.actual_close)
+        self.video_cap_worker.frame.connect(self.on_video_frame)
+
+        self.video_cap_thread.start()
+
         # idk
         self.window_drag_pos = QPoint()
         self.mouse_original_pos = QPoint()
@@ -202,32 +227,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # soon
         # self.users_not_read = []
-
-        # Client thread setup
-        self.client_thread = QThreadedHiSockClient(client, name)
-        self.client_thread.everyone_message.connect(self.on_everyone_message)
-        self.client_thread.client_join.connect(self.on_client_join)
-        self.client_thread.client_leave.connect(self.on_client_leave)
-        self.client_thread.discriminator.connect(self.on_discriminator)
-        self.client_thread.online_users.connect(self.on_online_users)
-        self.client_thread.dm_message.connect(self.on_dm_message)
-        self.client_thread.incoming_call.connect(self.on_incoming_call)
-        self.client_thread.accepted_call.connect(self.on_accepted_call)
-        self.client_thread.video_data.connect(self.on_video_data)
-        self.client_thread.end_call.connect(self.on_end_call)
-        self.client_thread.start()
-
-        # Video Cap thread setup
-        self.video_cap_worker = VideoCapWorker(self.client)
-        self.video_cap_thread = QThread()
-        self.video_cap_worker.moveToThread(self.video_cap_thread)
-
-        self.video_cap_thread.started.connect(self.video_cap_worker.run)
-        self.video_cap_thread.finished.connect(self.actual_close)
-        self.video_cap_worker.frame.connect(self.on_video_frame)
-
-        self.video_cap_thread.start()
-
 
     # HELPERS
 
