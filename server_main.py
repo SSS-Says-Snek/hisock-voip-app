@@ -47,6 +47,7 @@ def on_join(client_data):
 
 @server.on("leave")
 def on_leave(client_data):
+    print(time.time(), "leave")
     username = client_data.name
 
     online_users.remove(username)
@@ -98,7 +99,9 @@ def on_accepted_call(client_data, original_sender: str):
 def on_video_data(client_data, data: list):
     recipient, frame_data = data
 
-    server.send_client(recipient, "video_data", frame_data)
+    if recipient in online_users:
+        print(time.time(), "viddata")
+        server.send_client(recipient, "video_data", frame_data)
 
 
 print(f"Starting server at {IP}:{PORT}!")

@@ -118,9 +118,9 @@ class VideoCapWorker(QObject):
             self.frame.emit(frame)
 
             if self.calling_someone:
-                frame_bytes = cv.imencode(".jpg", frame)[1].tobytes()
+                frame_str = cv.imencode(".jpg", frame)[1].tobytes()
 
-                self.client.send("video_data", [self.calling_someone, frame_bytes])
+                self.client.send("video_data", [self.calling_someone, frame_str])
     
     def finish(self):
         self.cap.release()
@@ -309,6 +309,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.notif.finish()
 
         self.video_cap_worker.finish()
+        self.video_cap_thread.wait()
+
+        self.client.close()
         self.close()
 
     # ACTIONS
