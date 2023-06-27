@@ -9,9 +9,9 @@ from __future__ import annotations
 import random
 import time
 
-from hisock import HiSockServer, get_local_ip
+from hisock import HiSockServer
 
-IP = get_local_ip()
+IP = input("Enter Server IP: ")
 PORT = 9999
 
 server = HiSockServer((IP, PORT))
