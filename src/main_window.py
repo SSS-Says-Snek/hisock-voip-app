@@ -183,7 +183,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.video_cap_thread.started.connect(self.video_cap_worker.run)
         self.video_cap_worker.frame.connect(self.on_video_frame)
-        self.video_cap_worker.done.connect(self.voip_close)
+        self.video_cap_worker.done.connect(self.vidcap_thread_done)
 
         self.video_cap_thread.start()
 
@@ -206,6 +206,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.notif = None
         self.calling = False
+        self.close_mode = "normal"
 
         # Signals
         self.frame_bar.mousePressEvent = self.framebar_mousepress
@@ -324,22 +325,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         if self.video_cap_worker.calling_someone:
             self.video_cap_worker.finish()
+            self.close_mode = "actively_ending_call"
         else:
             self.video_cap_worker.cleanup()
             self.client.close()
             self.close()
     
-    def voip_close(self):
+    def vidcap_thread_done(self):
         self.video_cap_worker.cleanup()
         self.video_cap_thread.quit()
 
-        print("HI")
-        self.client.send("end_call", self.current_call_username())
-        self.client.recv("ended_call")
-        print("WOW")
+        print("HI", self.current_call_username())
+        if self.close_mode == "actively_ending_call":
+            self.client.send("end_call", self.current_call_username())
+            self.client.recv("ended_call")
+            print("WOW")
 
-        self.client.close()
-        self.close()
+            self.client.close()
+            self.close()
+        elif self.close_mode == "recv_ending_call":
+            self.client.send("ended_call", self.current_call_username())
 
     # ACTIONS
 
@@ -521,11 +526,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.voip_states.setCurrentIndex(1)
         self.client.send("accepted_call", original_sender)
 
+        self.call_who_label.setText(f"Calling: {original_sender}")
+
         self.calling = True
         self.video_cap_worker.calling_someone = original_sender
     
     def on_end_call(self):
+        print("YO")
         self.video_cap_worker.finish()
-        self.video_cap_thread.wait()
-
-        self.client.send("ended_call", self.current_call_username())
+        self.close_mode = "recv_ending_call"
+        # voip_close will handle the rest
