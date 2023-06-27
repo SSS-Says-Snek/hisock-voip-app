@@ -346,6 +346,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         elif self.close_mode == "recv_ending_call":
             self.client.send("ended_call", self.current_call_username())
 
+            self.video_cap_worker.calling_someone = False
+            self.calling = False
+            self.close_mode = "normal"
+        elif self.close_mode == "normal":
+            self.client.close()
+            self.close()
+
     # ACTIONS
 
     def framebar_mousepress(self, a0: QMouseEvent):
@@ -523,8 +530,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         )
     
     def on_accepted_call(self, original_sender: str):
+        print("WOW")
         self.voip_states.setCurrentIndex(1)
-        self.client.send("accepted_call", original_sender)
+
+        if self.call_who_label.text() == "Calling: ":
+            self.client.send("accepted_call", original_sender)
 
         self.call_who_label.setText(f"Calling: {original_sender}")
 
