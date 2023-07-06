@@ -83,19 +83,18 @@ def on_dm_message(client_data, data: list):
         recipient, "recv_dm_message", {"username": client_data.name, "message": message, "time_sent": now}
     )
 
+
 @server.on("request_call")
 def on_request_call(client_data, recipient: str):
     print(f"Call request from {client_data.name} to {recipient}")
-    server.send_client(
-        recipient, "incoming_call", client_data.name
-    )
+    server.send_client(recipient, "incoming_call", client_data.name)
+
 
 @server.on("accepted_call")
 def on_accepted_call(client_data, original_sender: str):
     print(f"Accepted call between {client_data.name} and {original_sender}!")
-    server.send_client(
-        original_sender, "accepted_call", client_data.name
-    )
+    server.send_client(original_sender, "accepted_call", client_data.name)
+
 
 @server.on("video_data")
 def on_video_data(_, data: list):
@@ -105,6 +104,7 @@ def on_video_data(_, data: list):
         print(time.time(), "viddata")
         server.send_client(recipient, "video_data", frame_data)
 
+
 @server.on("audio_data")
 def on_audio_data(_, data: list):
     recipient, audio_data = data
@@ -112,11 +112,13 @@ def on_audio_data(_, data: list):
     if recipient in online_users:
         print(time.time(), "auddata")
         server.send_client(recipient, "audio_data", audio_data)
-    
+
+
 @server.on("end_call")
 def on_end_call(client_data, recipient: str):
     print(f"Requesting to end call between {client_data.name} and {recipient} ({client_data.name} initiated)")
     server.send_client(recipient, "end_call")
+
 
 @server.on("ended_call")
 def on_ended_call(client_data, recipient: str):
