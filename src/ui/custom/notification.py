@@ -24,7 +24,7 @@ class AutoProgressWorker(QObject):
             time.sleep(1 / 120)
         self.done.emit()
     
-    def finish(self):
+    def stop(self):
         self.running = False
 
 
@@ -56,7 +56,7 @@ class Notif(QWidget):
 
         painter.fillPath(path, painter.brush())
     
-    def finish(self):
+    def stop(self):
         pass
 
 
@@ -69,7 +69,7 @@ class AcknowledgeNotif(Notif):
         self.ok_button = QPushButton("Okay", self)
         self.ok_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.ok_button.setStyleSheet("background-color: transparent;")
-        self.ok_button.clicked.connect(self.finish)
+        self.ok_button.clicked.connect(self.stop)
 
         self.auto_progressbar = QProgressBar(self)
         self.auto_progressbar.setFixedHeight(5)
@@ -81,7 +81,7 @@ class AcknowledgeNotif(Notif):
         self.auto_progress_thread.finished.connect(self.thread_close)
 
         self.auto_progress_worker.update.connect(self.auto_progressbar.setValue)
-        self.auto_progress_worker.done.connect(self.finish)
+        self.auto_progress_worker.done.connect(self.stop)
         self.auto_progress_thread.start()
 
         layout.addWidget(self.text_label, 0, 0)
@@ -89,9 +89,9 @@ class AcknowledgeNotif(Notif):
         layout.addWidget(self.auto_progressbar, 1, 0, 1, 2)
         self.setLayout(layout)
     
-    def finish(self):
+    def stop(self):
         self.auto_progress_thread.quit()
-        self.auto_progress_worker.finish()
+        self.auto_progress_worker.stop()
         self.hide()
     
     def thread_close(self):

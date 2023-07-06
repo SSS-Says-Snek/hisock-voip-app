@@ -137,7 +137,7 @@ class VideoCapWorker(QObject):
         print("Exiting from videocap thread")
         self.done.emit()
     
-    def finish(self):
+    def stop(self):
         self.running = False
     
     def cleanup(self):
@@ -329,9 +329,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
     def before_close(self):
         if self.notif is not None:
-            self.notif.finish()
+            self.notif.stop()
 
-        self.video_cap_worker.finish()  # Vidcap thread actually does closing
+        self.video_cap_worker.stop()  # Vidcap thread actually does closing
         if self.video_cap_worker.calling_someone:
             self.close_mode = "actively_ending_call"
         else:
@@ -550,6 +550,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.video_cap_worker.calling_someone = original_sender
     
     def on_end_call(self):
-        self.video_cap_worker.finish()
+        self.video_cap_worker.stop()
         self.close_mode = "recv_ending_call"
         # voip_close will handle the rest
