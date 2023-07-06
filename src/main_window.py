@@ -121,10 +121,12 @@ class VideoCapWorker(QObject):
         if self.cap is None or not self.cap.isOpened():
             self.invalid_camera = True
 
-        self.running = True
+        self.running = False
         self.calling_someone: Union[bool, str] = False  # Either False or a str representing recipient
             
     def run(self):
+        self.running = True
+
         while self.running:
             time.sleep(1 / 60)
             if self.invalid_camera:
@@ -160,9 +162,11 @@ class AudioReadWorker(QObject):
         self.client = client
         self.recipient = ""
 
-        self.running = True
+        self.running = False
 
     def run(self):
+        self.running = True
+
         with sd.RawInputStream(samplerate=44100, blocksize=2048) as stream:
             while self.running:
                 buffer, overflowed = stream.read(2048)
@@ -174,6 +178,9 @@ class AudioReadWorker(QObject):
             self.done.emit()
     
     def stop(self):
+        if not self.running:
+            self.done.emit()
+
         self.running = False
     
 class AudioWriteWorker(QObject):
@@ -186,10 +193,12 @@ class AudioWriteWorker(QObject):
         self.recipient = ""
         self.queue = Queue()
 
-        self.running = True
+        self.running = False
 
 
     def run(self):
+        self.running = True
+
         with sd.RawOutputStream(samplerate=44100, blocksize=2048) as stream:
             while self.running:
                 try:
@@ -202,6 +211,9 @@ class AudioWriteWorker(QObject):
             self.done.emit()
     
     def stop(self):
+        if not self.running:
+            self.done.emit()
+
         self.running = False
 
 
