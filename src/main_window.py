@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 from datetime import datetime
 from typing import Optional, Union
+import time
 
 import cv2 as cv
 import numpy as np
@@ -22,7 +23,7 @@ from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem, QMainWindow,
 
 from src.ui.custom.dm_list_item import DMListItem
 from src.ui.custom.message import Message
-from src.ui.custom.notification import AcknowledgeNotif, IncomingCallNotif
+from src.ui.custom.notification import Notif, AcknowledgeNotif, IncomingCallNotif
 from src.ui.generated.main_ui import Ui_MainWindow
 
 
@@ -108,15 +109,19 @@ class VideoCapWorker(QObject):
         self.client = client
 
         self.cap = cv.VideoCapture(0)
-        if not self.cap:
-            # Hang on
-            pass
+        self.invalid_camera = False
+        if self.cap is None or not self.cap.isOpened():
+            self.invalid_camera = True
 
         self.running = True
         self.calling_someone: Union[bool, str] = False  # Either False or a str representing recipient
             
     def run(self):
         while self.running:
+            time.sleep(1 / 60)
+            if self.invalid_camera:
+                continue
+            
             ret, frame = self.cap.read()
             if not ret:
                 # Hang on
@@ -124,11 +129,12 @@ class VideoCapWorker(QObject):
             self.frame.emit(frame)
 
             if self.calling_someone:
-                frame_str = cv.imencode(".jpg", frame)[1].tobytes()
+                # e = time.time()
+                frame_str = cv.imencode(".jpg", cv.resize(frame, (0, 0), fx=0.5, fy=0.5))[1].tobytes()
 
                 self.client.send("video_data", [self.calling_someone, frame_str])
         
-        print("[DEBUG] Exiting from videocap thread")
+        print("Exiting from videocap thread")
         self.done.emit()
     
     def finish(self):
@@ -158,9 +164,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.everyone_messages.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.everyone_messages.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinAndMaxSize)
-        # self.everyone_message_scrollarea.setStyleSheet("border: 1px solid;")
 
-        # self.preview_frame.setStyleSheet("border: 2px solid;")
+        # Notifications 
+        self.notif: Optional[Notif] = None
+        self.calling = False
+        self.close_mode = "normal"
 
         # Client thread setup
         self.client_thread = QThreadedHiSockClient(client, name)
@@ -178,12 +186,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Video Cap thread setup
         self.video_cap_worker = VideoCapWorker(self.client)
+        if self.video_cap_worker.invalid_camera:
+            self.add_notif(AcknowledgeNotif("No camera available!", self.width(), 5, self))
+
         self.video_cap_thread = QThread()
         self.video_cap_worker.moveToThread(self.video_cap_thread)
 
         self.video_cap_thread.started.connect(self.video_cap_worker.run)
         self.video_cap_worker.frame.connect(self.on_video_frame)
-        self.video_cap_worker.done.connect(self.vidcap_thread_done)
+        self.video_cap_worker.done.connect(self.on_vidcap_close)
 
         self.video_cap_thread.start()
 
@@ -205,16 +216,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.set_title_font(self.voip_selection_label, 12)
         self.set_title_font(self.call_who_label, 16, bold=True)
 
-        self.notif = None
-        self.calling = False
-        self.close_mode = "normal"
-
         # Signals
         self.frame_bar.mousePressEvent = self.framebar_mousepress
         self.frame_bar.mouseMoveEvent = self.move_window
 
         self.minimize_button.clicked.connect(self.showMinimized)
-        self.x_button.clicked.connect(self.normal_close)
+        self.x_button.clicked.connect(self.before_close)
 
         self.everyone_message_to_send.returnPressed.connect(self.send_everyone_message)
         self.everyone_send_button.clicked.connect(self.send_everyone_message)
@@ -320,19 +327,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message)
         )
 
-    def normal_close(self):
+    def before_close(self):
         if self.notif is not None:
             self.notif.finish()
 
+        self.video_cap_worker.finish()  # Vidcap thread actually does closing
         if self.video_cap_worker.calling_someone:
-            self.video_cap_worker.finish()
             self.close_mode = "actively_ending_call"
         else:
-            self.video_cap_worker.cleanup()
-            self.client.close()
-            self.close()
-    
-    def vidcap_thread_done(self):
+            self.close_mode = "normal"
+
+    def on_vidcap_close(self):
         self.video_cap_worker.cleanup()
         self.video_cap_thread.quit()
 
@@ -524,11 +529,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             frame.data, width, height, QImage.Format.Format_RGB888
         ).rgbSwapped()
 
-        pixmap = QPixmap.fromImage(image)
         if not self.calling:
-            self.preview_frame.setPixmap(pixmap)
+            self.preview_frame.setPixmap(
+                QPixmap.fromImage(image)
+            )
         else:
-            self.own_video_label.setPixmap(pixmap)
+            self.own_video_label.setPixmap(
+                QPixmap.fromImage(image)
+            )
     
     def on_accepted_call(self, original_sender: str):
         self.voip_states.setCurrentIndex(1)

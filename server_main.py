@@ -47,7 +47,6 @@ def on_join(client_data):
 
 @server.on("leave")
 def on_leave(client_data):
-    print(time.time(), "leave")
     username = client_data.name
 
     online_users.remove(username)
