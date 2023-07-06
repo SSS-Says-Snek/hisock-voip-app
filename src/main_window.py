@@ -6,13 +6,16 @@ Copyright (c) 2022-present SSS-Says-Snek
 
 from __future__ import annotations
 
-import os
 from datetime import datetime
+from queue import Queue, Empty
 from typing import Optional, Union
+
+import os
 import time
 
 import cv2 as cv
 import numpy as np
+import sounddevice as sd
 
 from hisock import HiSockClient
 
@@ -37,6 +40,7 @@ class QThreadedHiSockClient(QThread):
     incoming_call = pyqtSignal(str)
     accepted_call = pyqtSignal(str)
     video_data = pyqtSignal(bytes)
+    audio_data = pyqtSignal(bytes)
     end_call = pyqtSignal()
 
     def __init__(self, client: HiSockClient, name: str):
@@ -91,6 +95,10 @@ class QThreadedHiSockClient(QThread):
         def on_video_data(video_data: bytes):
             self.video_data.emit(video_data)
         
+        @self.client.on("audio_data")
+        def on_audio_data(audio_data: bytes):
+            self.audio_data.emit(audio_data)
+        
         @self.client.on("end_call")
         def on_end_call():
             self.end_call.emit()
@@ -129,7 +137,6 @@ class VideoCapWorker(QObject):
             self.frame.emit(frame)
 
             if self.calling_someone:
-                # e = time.time()
                 frame_str = cv.imencode(".jpg", cv.resize(frame, (0, 0), fx=0.5, fy=0.5))[1].tobytes()
 
                 self.client.send("video_data", [self.calling_someone, frame_str])
@@ -142,7 +149,60 @@ class VideoCapWorker(QObject):
     
     def cleanup(self):
         self.cap.release()
+
+
+class AudioReadWorker(QObject):
+    done = pyqtSignal()
+
+    def __init__(self, client: HiSockClient):
+        super().__init__()
+
+        self.client = client
+        self.recipient = ""
+
+        self.running = True
+
+    def run(self):
+        with sd.RawInputStream(samplerate=44100, blocksize=2048) as stream:
+            while self.running:
+                buffer, overflowed = stream.read(2048)
+                data = bytes(buffer)  # type: ignore
+
+                self.client.send("audio_data", [self.recipient, data]) # type: ignore
+                # FORGOT TO CHANGE TYPE HINTS
             
+            self.done.emit()
+    
+    def stop(self):
+        self.running = False
+    
+class AudioWriteWorker(QObject):
+    done = pyqtSignal()
+
+    def __init__(self, client: HiSockClient):
+        super().__init__()
+
+        self.client = client
+        self.recipient = ""
+        self.queue = Queue()
+
+        self.running = True
+
+
+    def run(self):
+        with sd.RawOutputStream(samplerate=44100, blocksize=2048) as stream:
+            while self.running:
+                try:
+                    data = self.queue.get_nowait()
+                except Empty:
+                    pass
+                else:
+                    stream.write(data)
+            
+            self.done.emit()
+    
+    def stop(self):
+        self.running = False
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -169,6 +229,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.notif: Optional[Notif] = None
         self.calling = False
         self.close_mode = "normal"
+        self.threads_stopped = 0  # Video cap, Audio read, Audio write
 
         # Client thread setup
         self.client_thread = QThreadedHiSockClient(client, name)
@@ -181,6 +242,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.client_thread.incoming_call.connect(self.on_incoming_call)
         self.client_thread.accepted_call.connect(self.on_accepted_call)
         self.client_thread.video_data.connect(self.on_video_data)
+        self.client_thread.audio_data.connect(self.on_audio_data)
         self.client_thread.end_call.connect(self.on_end_call)
         self.client_thread.start()
 
@@ -194,11 +256,24 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.video_cap_thread.started.connect(self.video_cap_worker.run)
         self.video_cap_worker.frame.connect(self.on_video_frame)
-        self.video_cap_worker.done.connect(self.on_vidcap_close)
+        self.video_cap_worker.done.connect(self.thread_stopped)
 
         self.video_cap_thread.start()
 
-        # idk
+        # Audio(s) thread setup
+        self.audio_read_worker = AudioReadWorker(self.client)
+        self.audio_read_thread = QThread()
+        self.audio_read_worker.moveToThread(self.audio_read_thread)
+        self.audio_read_thread.started.connect(self.audio_read_worker.run)
+        self.audio_read_worker.done.connect(self.thread_stopped)
+
+        self.audio_write_worker = AudioWriteWorker(self.client)
+        self.audio_write_thread = QThread()
+        self.audio_write_worker.moveToThread(self.audio_write_thread)
+        self.audio_write_thread.started.connect(self.audio_write_worker.run)
+        self.audio_write_worker.done.connect(self.thread_stopped)
+
+        # Frame bar styles
         self.window_drag_pos = QPoint()
         self.mouse_original_pos = QPoint()
 
@@ -221,7 +296,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.frame_bar.mouseMoveEvent = self.move_window
 
         self.minimize_button.clicked.connect(self.showMinimized)
-        self.x_button.clicked.connect(self.before_close)
+        self.x_button.clicked.connect(self.request_close)
 
         self.everyone_message_to_send.returnPressed.connect(self.send_everyone_message)
         self.everyone_send_button.clicked.connect(self.send_everyone_message)
@@ -327,17 +402,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message)
         )
 
-    def before_close(self):
+    # Threads cleanup/close
+    
+    def thread_stopped(self):
+        self.threads_stopped += 1
+        if self.threads_stopped == 3:
+            self.on_threads_close()
+
+    def request_close(self):
         if self.notif is not None:
             self.notif.stop()
 
-        self.video_cap_worker.stop()  # Vidcap thread actually does closing
-        if self.video_cap_worker.calling_someone:
+        self.video_cap_worker.stop()
+        self.audio_read_worker.stop()
+        self.audio_write_worker.stop()
+        if self.calling:
             self.close_mode = "actively_ending_call"
         else:
             self.close_mode = "normal"
 
-    def on_vidcap_close(self):
+    def on_threads_close(self):
         self.video_cap_worker.cleanup()
         self.video_cap_thread.quit()
 
@@ -520,6 +604,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.opp_video_label.setPixmap(
             QPixmap.fromImage(image)
         )
+    
+    def on_audio_data(self, audio_data: bytes):
+        self.audio_write_worker.queue.put(audio_data)
 
     # Thing idk
 
@@ -543,13 +630,20 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         if self.call_who_label.text() == "Calling: ":
             self.client.send("accepted_call", original_sender)
-
         self.call_who_label.setText(f"Calling: {original_sender}")
 
         self.calling = True
+
         self.video_cap_worker.calling_someone = original_sender
+        self.audio_read_worker.recipient = original_sender
+        self.audio_write_worker.recipient = original_sender
+        self.audio_read_thread.start()
+        self.audio_write_thread.start()
     
     def on_end_call(self):
         self.video_cap_worker.stop()
+        self.audio_read_worker.stop()
+        self.audio_write_worker.stop()
         self.close_mode = "recv_ending_call"
-        # voip_close will handle the rest
+
+        # on_threads_close will handle the rest

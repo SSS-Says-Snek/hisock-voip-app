@@ -104,6 +104,14 @@ def on_video_data(_, data: list):
     if recipient in online_users:
         print(time.time(), "viddata")
         server.send_client(recipient, "video_data", frame_data)
+
+@server.on("audio_data")
+def on_audio_data(_, data: list):
+    recipient, audio_data = data
+
+    if recipient in online_users:
+        print(time.time(), "auddata")
+        server.send_client(recipient, "audio_data", audio_data)
     
 @server.on("end_call")
 def on_end_call(client_data, recipient: str):
