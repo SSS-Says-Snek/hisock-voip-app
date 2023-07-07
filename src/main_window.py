@@ -142,7 +142,7 @@ class VideoCapWorker(QObject):
                 ratio = height / width
 
                 reduced_width = 480
-                reduced_height = reduced_width * ratio
+                reduced_height = int(reduced_width * ratio)
 
                 frame_str = cv.imencode(".jpg", cv.resize(frame, (reduced_width, reduced_height)))[1].tobytes()
 
