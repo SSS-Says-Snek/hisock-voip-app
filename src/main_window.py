@@ -121,7 +121,7 @@ class VideoCapWorker(QObject):
             self.invalid_camera = True
 
         self.running = False
-        self.calling_someone: Union[bool, str] = False  # Either False or a str representing recipient
+        self.recipient: Union[bool, str] = False  # Either False or a str representing recipient
 
     def run(self):
         self.running = True
@@ -137,10 +137,16 @@ class VideoCapWorker(QObject):
                 break
             self.frame.emit(frame)
 
-            if self.calling_someone:
-                frame_str = cv.imencode(".jpg", cv.resize(frame, (0, 0), fx=0.5, fy=0.5))[1].tobytes()
+            if self.recipient != "":
+                height, width = frame.shape[:2]
+                ratio = height / width
 
-                self.client.send("video_data", [self.calling_someone, frame_str])
+                reduced_width = 480
+                reduced_height = reduced_width * ratio
+
+                frame_str = cv.imencode(".jpg", cv.resize(frame, (reduced_width, reduced_height)))[1].tobytes()
+
+                self.client.send("video_data", [self.recipient, frame_str])
 
         print("Exiting from videocap thread")
         self.done.emit()
@@ -171,7 +177,10 @@ class AudioReadWorker(QObject):
                 buffer, overflowed = stream.read(2048)
                 data = bytes(buffer)  # type: ignore
 
-                self.client.send("audio_data", [self.recipient, data])  # type: ignore
+                if not overflowed:
+                    self.client.send("audio_data", [self.recipient, data])  # type: ignore
+                else:
+                    print("YOOOO")
                 # FORGOT TO CHANGE TYPE HINTS
 
             self.done.emit()
@@ -446,7 +455,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         elif self.close_mode == "recv_ending_call":
             self.client.send("ended_call", self.current_call_username())
 
-            self.video_cap_worker.calling_someone = False
+            self.video_cap_worker.recipient = False
             self.calling = False
             self.close_mode = "normal"
         elif self.close_mode == "normal":
@@ -608,8 +617,10 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         frame = cv.imdecode(frame_np, cv.IMREAD_COLOR)
         height, width = frame.shape[:2]
         image = QImage(frame.data, width, height, QImage.Format.Format_RGB888).rgbSwapped()
+        pixmap = QPixmap.fromImage(image)
 
-        self.opp_video_label.setPixmap(QPixmap.fromImage(image))
+        label_width, label_height = self.opp_video_label.width(), self.opp_video_label.height()
+        self.opp_video_label.setPixmap(pixmap.scaled(label_width, label_height, Qt.AspectRatioMode.KeepAspectRatio))
 
     def on_audio_data(self, audio_data: bytes):
         self.audio_write_worker.queue.put(audio_data)
@@ -619,11 +630,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def on_video_frame(self, frame: np.ndarray):
         height, width = frame.shape[:2]
         image = QImage(frame.data, width, height, QImage.Format.Format_RGB888).rgbSwapped()
+        pixmap = QPixmap.fromImage(image)
 
         if not self.calling:
-            self.preview_frame.setPixmap(QPixmap.fromImage(image))
+            label_width, label_height = self.preview_frame.width(), self.preview_frame.height()
+            self.preview_frame.setPixmap(pixmap.scaled(label_width, label_height, Qt.AspectRatioMode.KeepAspectRatio))
         else:
-            self.own_video_label.setPixmap(QPixmap.fromImage(image))
+            label_width, label_height = self.own_video_label.width(), self.own_video_label.height()
+            self.own_video_label.setPixmap(pixmap.scaled(label_width, label_height, Qt.AspectRatioMode.KeepAspectRatio))
 
     def on_accepted_call(self, original_sender: str):
         self.voip_states.setCurrentIndex(1)
@@ -634,7 +648,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.calling = True
 
-        self.video_cap_worker.calling_someone = original_sender
+        self.video_cap_worker.recipient = original_sender
         self.audio_read_worker.recipient = original_sender
         self.audio_write_worker.recipient = original_sender
         self.audio_read_thread.start()
