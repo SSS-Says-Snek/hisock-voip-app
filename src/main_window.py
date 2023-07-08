@@ -179,7 +179,7 @@ class AudioReadWorker(QObject):
                 data = bytes(buffer)  # type: ignore
 
                 if not overflowed:
-                    print(f"\033[33m{time.time()}: send video data of length {len(data)}\033[0m")
+                    print(f"\033[33m{time.time()}: send audio data of length {len(data)}\033[0m")
                     self.client.send("audio_data", [self.recipient, data])  # type: ignore
                 else:
                     print("YOOOO")
