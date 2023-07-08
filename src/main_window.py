@@ -7,6 +7,7 @@ Copyright (c) 2022-present SSS-Says-Snek
 from __future__ import annotations
 
 import os
+import threading
 import time
 from datetime import datetime
 from queue import Empty, Queue
@@ -123,6 +124,8 @@ class VideoCapWorker(QObject):
         self.running = False
         self.recipient = ""
 
+        self.recipient_lock = threading.Lock()
+
     def run(self):
         self.running = True
 
@@ -132,22 +135,24 @@ class VideoCapWorker(QObject):
                 continue
 
             ret, frame = self.cap.read()
-            if not ret:
-                # Hang on
+            if not ret:  # idk what to do
                 break
             self.frame.emit(frame)
 
-            if self.recipient != "":
-                height, width = frame.shape[:2]
-                ratio = height / width
+            with self.recipient_lock:
+                if self.recipient == "":
+                    continue
 
-                reduced_width = 480
-                reduced_height = int(reduced_width * ratio)
+            height, width = frame.shape[:2]
+            ratio = height / width
 
-                frame_str = cv.imencode(".jpg", cv.resize(frame, (reduced_width, reduced_height)))[1].tobytes()
+            reduced_width = 480
+            reduced_height = int(reduced_width * ratio)
 
-                self.client.send("video_data", [self.recipient, frame_str])
-                print(f"\033[32m{time.time()}: sent video data to {self.recipient} of length {len(frame_str)}\033[0m")
+            frame_str = cv.imencode(".jpg", cv.resize(frame, (reduced_width, reduced_height)))[1].tobytes()
+
+            self.client.send("video_data", [self.recipient, frame_str])
+            print(f"\033[32m{time.time()}: sent video data to {self.recipient} of length {len(frame_str)}\033[0m")
 
         print("Exiting from videocap thread")
         self.done.emit()
@@ -455,12 +460,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
             self.client.close()
             self.close()
-        elif self.close_mode == "recv_ending_call":
-            self.client.send("ended_call", self.current_call_username())
-
-            self.video_cap_worker.recipient = ""
-            self.calling = False
-            self.close_mode = "normal"
         elif self.close_mode == "normal":
             self.client.close()
             self.close()
@@ -662,8 +661,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         # Don't stop vid (yet)
         self.audio_read_worker.stop()
         self.audio_write_worker.stop()
-
-        self.close_mode = "recv_ending_call"
         self.add_notif(AcknowledgeNotif("Call ended!", self.width(), 5, self))
 
         self.voip_states.setCurrentIndex(0) # Reset to call screen
@@ -672,4 +669,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.own_video_label.clear()
         self.opp_video_label.clear()
 
-        # on_threads_close will handle the rest
+        with self.video_cap_worker.recipient_lock:
+            self.recipient = ""
+
+        self.client.send("ended_call", self.current_call_username())
+        self.calling = False
+        self.close_mode = "normal"
