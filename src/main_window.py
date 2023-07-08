@@ -667,5 +667,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.add_notif(AcknowledgeNotif("Call ended!", self.width(), 5, self))
 
         self.voip_states.setCurrentIndex(0) # Reset to call screen
+        self.call_who_label.setText("Calling: ")
+
+        self.own_video_label.clear()
+        self.opp_video_label.clear()
 
         # on_threads_close will handle the rest
