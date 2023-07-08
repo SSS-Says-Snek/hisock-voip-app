@@ -659,7 +659,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.audio_write_thread.start()
 
     def on_end_call(self):
-        self.stop_threads()
+        # Don't stop vid (yet)
+        self.audio_read_worker.stop()
+        self.audio_write_worker.stop()
+
         self.close_mode = "recv_ending_call"
+        self.add_notif(AcknowledgeNotif("Call ended!", self.width(), 5, self))
+
+        self.voip_states.setCurrentIndex(0) # Reset to call screen
 
         # on_threads_close will handle the rest
