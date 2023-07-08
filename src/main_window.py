@@ -147,7 +147,7 @@ class VideoCapWorker(QObject):
                 frame_str = cv.imencode(".jpg", cv.resize(frame, (reduced_width, reduced_height)))[1].tobytes()
 
                 self.client.send("video_data", [self.recipient, frame_str])
-                print(f"{time.time()}: sent video data to {self.recipient} of length {len(frame_str)}")
+                print(f"\033[32m{time.time()}: sent video data to {self.recipient} of length {len(frame_str)}\033[0m")
 
         print("Exiting from videocap thread")
         self.done.emit()
@@ -179,6 +179,7 @@ class AudioReadWorker(QObject):
                 data = bytes(buffer)  # type: ignore
 
                 if not overflowed:
+                    print(f"\033[33m{time.time()}: send video data of length {len(data)}\033[0m")
                     self.client.send("audio_data", [self.recipient, data])  # type: ignore
                 else:
                     print("YOOOO")
@@ -215,6 +216,7 @@ class AudioWriteWorker(QObject):
                 except Empty:
                     pass
                 else:
+                    print(f"\033[93m{time.time()}: recv audio data of length {len(data)}\033[0m")
                     stream.write(data)
 
             self.done.emit()
@@ -614,7 +616,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.add_notif(call_notif)
 
     def on_video_data(self, video_data: bytes):
-        print(f"{time.time()}: recv video data of length {len(video_data)}")
+        print(f"\033[92m{time.time()}: recv video data of length {len(video_data)}\033[0m")
         frame_np = np.frombuffer(video_data, np.uint8)
         frame = cv.imdecode(frame_np, cv.IMREAD_COLOR)
         height, width = frame.shape[:2]
