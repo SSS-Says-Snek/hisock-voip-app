@@ -121,7 +121,7 @@ class VideoCapWorker(QObject):
             self.invalid_camera = True
 
         self.running = False
-        self.recipient: Union[bool, str] = False  # Either False or a str representing recipient
+        self.recipient = ""
 
     def run(self):
         self.running = True
@@ -147,6 +147,7 @@ class VideoCapWorker(QObject):
                 frame_str = cv.imencode(".jpg", cv.resize(frame, (reduced_width, reduced_height)))[1].tobytes()
 
                 self.client.send("video_data", [self.recipient, frame_str])
+                print(f"{time.time()}: sent video data to {self.recipient} of length {len(frame_str)}")
 
         print("Exiting from videocap thread")
         self.done.emit()
@@ -455,7 +456,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         elif self.close_mode == "recv_ending_call":
             self.client.send("ended_call", self.current_call_username())
 
-            self.video_cap_worker.recipient = False
+            self.video_cap_worker.recipient = ""
             self.calling = False
             self.close_mode = "normal"
         elif self.close_mode == "normal":
@@ -613,6 +614,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.add_notif(call_notif)
 
     def on_video_data(self, video_data: bytes):
+        print(f"{time.time()}: recv video data of length {len(video_data)}")
         frame_np = np.frombuffer(video_data, np.uint8)
         frame = cv.imdecode(frame_np, cv.IMREAD_COLOR)
         height, width = frame.shape[:2]

@@ -97,20 +97,20 @@ def on_accepted_call(client_data, original_sender: str):
 
 
 @server.on("video_data")
-def on_video_data(_, data: list):
+def on_video_data(client_data, data: list):
     recipient, frame_data = data
 
     if recipient in online_users:
-        print(time.time(), "viddata")
+        print(f"{time.time()}: sent video data from {client_data.name} to {recipient} of length {len(frame_data)}")
         server.send_client(recipient, "video_data", frame_data)
 
 
 @server.on("audio_data")
-def on_audio_data(_, data: list):
+def on_audio_data(client_data, data: list):
     recipient, audio_data = data
 
     if recipient in online_users:
-        print(time.time(), "auddata")
+        print(f"{time.time()}: sent audio data from {client_data.name} to {recipient} of length {len(audio_data)}")
         server.send_client(recipient, "audio_data", audio_data)
 
 
