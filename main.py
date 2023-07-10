@@ -25,8 +25,6 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     startup_window = StartupWindow()
 
-    # window = MainWindow()
-
     apply_stylesheet(app, theme="dark_cyan.xml")
 
     load_stylesheet("override.qss")
