@@ -149,10 +149,10 @@ class VideoCapWorker(QObject):
             reduced_width = 480
             reduced_height = int(reduced_width * ratio)
 
-            frame_str = cv.imencode(".jpg", cv.resize(frame, (reduced_width, reduced_height)))[1].tobytes()
+            frame_bytes = cv.imencode(".jpg", cv.resize(frame, (reduced_width, reduced_height)))[1].tobytes()
 
-            self.client.send("video_data", [self.recipient, frame_str])
-            print(f"\033[32m{time.time()}: sent video data to {self.recipient} of length {len(frame_str)}\033[0m")
+            self.client.send("video_data", [self.recipient, frame_bytes])  # type: ignore
+            print(f"\033[32m{time.time()}: sent video data to {self.recipient} of length {len(frame_bytes)}\033[0m")
 
         print("Exiting from videocap thread")
         self.done.emit()
@@ -640,7 +640,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.preview_frame.setPixmap(pixmap.scaled(label_width, label_height, Qt.AspectRatioMode.KeepAspectRatio))
         else:
             label_width, label_height = self.own_video_label.width(), self.own_video_label.height()
-            self.own_video_label.setPixmap(pixmap.scaled(label_width, label_height, Qt.AspectRatioMode.KeepAspectRatio))
+            self.own_video_label.setPixmap(
+                pixmap.scaled(label_width, label_height, Qt.AspectRatioMode.KeepAspectRatio)
+            )
 
     def on_accepted_call(self, original_sender: str):
         self.voip_states.setCurrentIndex(1)
@@ -663,7 +665,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.audio_write_worker.stop()
         self.add_notif(AcknowledgeNotif("Call ended!", self.width(), 5, self))
 
-        self.voip_states.setCurrentIndex(0) # Reset to call screen
+        self.voip_states.setCurrentIndex(0)  # Reset to call screen
         self.call_who_label.setText("Calling: ")
 
         self.own_video_label.clear()
