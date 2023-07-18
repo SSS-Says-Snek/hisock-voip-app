@@ -8,11 +8,11 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.8"
-hisock = {git = "https://github.com/SSS-Says-Snek/hisock"}
 qt-material = "^2.14"
 sounddevice = "^0.4.6"
 opencv-python-headless = "^4.8.0.74"
 pyqt6 = "^6.5.1"
+hisock = {git = "https://github.com/SSS-Says-Snek/hisock.git"}
 
 
 [tool.poetry.group.dev.dependencies]

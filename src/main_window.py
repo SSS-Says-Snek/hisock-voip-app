@@ -7,230 +7,30 @@ Copyright (c) 2022-present SSS-Says-Snek
 from __future__ import annotations
 
 import os
-import threading
 import time
+
 from datetime import datetime
-from queue import Empty, Queue
-from typing import Optional, Union
+from functools import partial
+from typing import Optional
 
 import cv2 as cv
 import numpy as np
-import sounddevice as sd
 from hisock import HiSockClient
-from PyQt6.QtCore import QObject, QPoint, Qt, QThread, pyqtSignal
+from PyQt6.QtCore import QPoint, Qt, QThread
 from PyQt6.QtGui import QFont, QImage, QMouseEvent, QPixmap
-from PyQt6.QtWidgets import (QFrame, QLabel, QListWidget, QListWidgetItem,
+from PyQt6.QtWidgets import (QLabel, QListWidget, QListWidgetItem,
                              QMainWindow, QScrollArea, QScrollBar, QVBoxLayout,
                              QWidget)
+
+from src.threads.qthreadedclient import QThreadedHiSockClient
+from src.threads.videocap import VideoCapWorker
+from src.threads.audio import AudioReadWorker, AudioWriteWorker
 
 from src.ui.custom.dm_list_item import DMListItem
 from src.ui.custom.message import Message
 from src.ui.custom.notification import (AcknowledgeNotif, IncomingCallNotif,
                                         Notif)
 from src.ui.generated.main_ui import Ui_MainWindow
-
-
-class QThreadedHiSockClient(QThread):
-    everyone_message = pyqtSignal(str, datetime, str)
-    client_join = pyqtSignal(str)
-    client_leave = pyqtSignal(str)
-    discriminator = pyqtSignal(int)
-    online_users = pyqtSignal(list)
-    dm_message = pyqtSignal(str, datetime, str)
-    incoming_call = pyqtSignal(str)
-    accepted_call = pyqtSignal(str)
-    video_data = pyqtSignal(bytes)
-    audio_data = pyqtSignal(bytes)
-    end_call = pyqtSignal()
-
-    def __init__(self, client: HiSockClient, name: str):
-        super().__init__()
-
-        self.client = client
-        self.name = name
-        self.discriminator_num = 0  # Server will send
-        self.username = ""
-
-        @self.client.on("recv_everyone_message")
-        def on_recv_everyone_message(data: dict):
-            if data["username"] != self.username:
-                time_sent = datetime.fromtimestamp(data["time_sent"])
-                self.everyone_message.emit(data["username"], time_sent, data["message"])
-
-        @self.client.on("client_join")
-        def on_client_join(username: str):
-            self.client_join.emit(username)
-
-        @self.client.on("client_leave")
-        def on_client_leave(username: str):
-            self.client_leave.emit(username)
-
-        @self.client.on("discriminator")
-        def on_discriminator(discriminator: int):
-            self.discriminator_num = discriminator
-            self.username = f"{self.name}#{self.discriminator_num:04}"
-
-            self.discriminator.emit(discriminator)
-
-            self.client.change_name(self.username)
-
-        @self.client.on("online_users")
-        def on_online_users(online_users: list):
-            self.online_users.emit(online_users)
-
-        @self.client.on("recv_dm_message")
-        def on_recv_dm_message(data: dict):
-            time_sent = datetime.fromtimestamp(data["time_sent"])
-            self.dm_message.emit(data["username"], time_sent, data["message"])
-
-        @self.client.on("incoming_call")
-        def on_incoming_call(sender: str):
-            self.incoming_call.emit(sender)
-
-        @self.client.on("accepted_call")
-        def on_accepted_call(sender: str):
-            self.accepted_call.emit(sender)
-
-        @self.client.on("video_data")
-        def on_video_data(video_data: bytes):
-            self.video_data.emit(video_data)
-
-        @self.client.on("audio_data")
-        def on_audio_data(audio_data: bytes):
-            self.audio_data.emit(audio_data)
-
-        @self.client.on("end_call")
-        def on_end_call():
-            self.end_call.emit()
-
-    def run(self):
-        self.client.start()
-
-
-class VideoCapWorker(QObject):
-    frame = pyqtSignal(np.ndarray)
-    done = pyqtSignal()
-
-    def __init__(self, client: HiSockClient):
-        super().__init__()
-
-        self.client = client
-
-        self.cap = cv.VideoCapture(0)
-        self.invalid_camera = False
-        if self.cap is None or not self.cap.isOpened():
-            self.invalid_camera = True
-
-        self.running = False
-        self.recipient = ""
-
-        self.recipient_lock = threading.Lock()
-
-    def run(self):
-        self.running = True
-
-        while self.running:
-            time.sleep(1 / 60)
-            if self.invalid_camera:
-                continue
-
-            ret, frame = self.cap.read()
-            if not ret:  # idk what to do
-                break
-            self.frame.emit(frame)
-
-            with self.recipient_lock:
-                if self.recipient == "":
-                    continue
-
-            height, width = frame.shape[:2]
-            ratio = height / width
-
-            reduced_width = 480
-            reduced_height = int(reduced_width * ratio)
-
-            frame_bytes = cv.imencode(".jpg", cv.resize(frame, (reduced_width, reduced_height)))[1].tobytes()
-
-            self.client.send("video_data", [self.recipient, frame_bytes])  # type: ignore
-            print(f"\033[32m{time.time()}: sent video data to {self.recipient} of length {len(frame_bytes)}\033[0m")
-
-        print("Exiting from videocap thread")
-        self.done.emit()
-
-    def stop(self):
-        self.running = False
-
-    def cleanup(self):
-        self.cap.release()
-
-
-class AudioReadWorker(QObject):
-    done = pyqtSignal()
-
-    def __init__(self, client: HiSockClient):
-        super().__init__()
-
-        self.client = client
-        self.recipient = ""
-
-        self.running = False
-
-    def run(self):
-        self.running = True
-
-        with sd.RawInputStream(samplerate=44100, blocksize=2048) as stream:
-            while self.running:
-                buffer, overflowed = stream.read(2048)
-                data = bytes(buffer)  # type: ignore
-
-                if not overflowed:
-                    print(f"\033[33m{time.time()}: send audio data of length {len(data)}\033[0m")
-                    self.client.send("audio_data", [self.recipient, data])  # type: ignore
-                else:
-                    print("YOOOO")
-                # FORGOT TO CHANGE TYPE HINTS
-
-            self.done.emit()
-
-    def stop(self):
-        if not self.running:
-            self.done.emit()
-
-        self.running = False
-
-
-class AudioWriteWorker(QObject):
-    done = pyqtSignal()
-
-    def __init__(self, client: HiSockClient):
-        super().__init__()
-
-        self.client = client
-        self.recipient = ""
-        self.queue = Queue()
-
-        self.running = False
-
-    def run(self):
-        self.running = True
-
-        with sd.RawOutputStream(samplerate=44100, blocksize=2048) as stream:
-            while self.running:
-                try:
-                    data = self.queue.get_nowait()
-                except Empty:
-                    pass
-                else:
-                    print(f"\033[93m{time.time()}: recv audio data of length {len(data)}\033[0m")
-                    stream.write(data)
-
-            self.done.emit()
-
-    def stop(self):
-        if not self.running:
-            self.done.emit()
-
-        self.running = False
 
 
 class MainWindow(QMainWindow, Ui_MainWindow):
@@ -261,35 +61,40 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         # Client thread setup
         self.client_thread = QThreadedHiSockClient(client, name)
-        self.client_thread.everyone_message.connect(self.on_everyone_message)
-        self.client_thread.client_join.connect(self.on_client_join)
-        self.client_thread.client_leave.connect(self.on_client_leave)
-        self.client_thread.discriminator.connect(self.on_discriminator)
-        self.client_thread.online_users.connect(self.on_online_users)
-        self.client_thread.dm_message.connect(self.on_dm_message)
-        self.client_thread.incoming_call.connect(self.on_incoming_call)
-        self.client_thread.accepted_call.connect(self.on_accepted_call)
-        self.client_thread.video_data.connect(self.on_video_data)
-        self.client_thread.audio_data.connect(self.on_audio_data)
-        self.client_thread.end_call.connect(self.on_end_call)
+        self.client_thread_dict = {
+            self.client_thread.everyone_message: self.on_everyone_message,
+            self.client_thread.client_join: self.on_client_join,
+            self.client_thread.client_leave: self.on_client_leave,
+            self.client_thread.discriminator: self.on_discriminator,
+            self.client_thread.online_users: self.on_online_users,
+            self.client_thread.dm_message: self.on_dm_message,
+            self.client_thread.incoming_call: self.on_incoming_call,
+            self.client_thread.accepted_call: self.on_accepted_call,
+            self.client_thread.video_data: self.on_video_data,
+            self.client_thread.audio_data: self.on_audio_data,
+            self.client_thread.end_call: self.on_end_call
+        }
+        for signal, callback in self.client_thread_dict.keys():
+            signal.connect(callback)
         self.client_thread.start()
 
         # Video Cap thread setup
-        self.video_cap_worker = VideoCapWorker(self.client)
-        if self.video_cap_worker.invalid_camera:
+        self.videocap_worker = VideoCapWorker(self.client)
+        if self.videocap_worker.invalid_camera:
             self.add_notif(AcknowledgeNotif("No camera available!", self.width(), 5, self))
 
-        self.video_cap_thread = QThread()
-        self.video_cap_worker.moveToThread(self.video_cap_thread)
-
-        self.video_cap_thread.started.connect(self.video_cap_worker.run)
-        self.video_cap_worker.frame.connect(self.on_video_frame)
-        self.video_cap_worker.done.connect(self.thread_stopped)
-        self.video_cap_thread.start()
+        self.videocap_thread = QThread()
+        self.videocap_worker.moveToThread(self.videocap_thread)
+        self.videocap_thread.started.connect(self.videocap_worker.run)
+        self.videocap_worker.frame.connect(self.on_video_frame)
+        self.videocap_worker.video_data.connect(partial(self.send_voip_data, command="video_data"))
+        self.videocap_worker.done.connect(self.thread_stopped)
+        self.videocap_thread.start()
 
         # Audio(s) thread setup
         self.audio_read_worker = AudioReadWorker(self.client)
         self.audio_read_thread = QThread()
+        self.audio_read_worker.audio_data.connect(partial(self.send_voip_data, command="audio_data"))
         self.audio_read_worker.moveToThread(self.audio_read_thread)
         self.audio_read_thread.started.connect(self.audio_read_worker.run)
         self.audio_read_worker.done.connect(self.thread_stopped)
@@ -337,9 +142,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.start_call_button.clicked.connect(self.start_call)
 
         self.register_scrollbar(self.everyone_message_scrollarea)
-
-        # soon
-        # self.users_not_read = []
 
     # HELPERS
 
@@ -427,11 +229,14 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         messages.addWidget(
             Message("[Server]", (datetime.now() if time is None else time).strftime(self.TIME_FMT), message)
         )
+    
+    def send_voip_data(self, data: list, command: str):
+        self.client.send(command, data)
 
     # Threads cleanup/close
 
     def stop_threads(self):
-        self.video_cap_worker.stop()
+        self.videocap_worker.stop()
         self.audio_read_worker.stop()
         self.audio_write_worker.stop()
 
@@ -451,8 +256,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.close_mode = "normal"
 
     def on_threads_close(self):
-        self.video_cap_worker.cleanup()
-        self.video_cap_thread.quit()
+        self.videocap_worker.cleanup()
+        self.videocap_thread.quit()
 
         if self.close_mode == "actively_ending_call":
             self.client.send("end_call", self.current_call_username())
@@ -653,7 +458,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
 
         self.calling = True
 
-        self.video_cap_worker.recipient = original_sender
+        self.videocap_worker.recipient = original_sender
         self.audio_read_worker.recipient = original_sender
         self.audio_write_worker.recipient = original_sender
         self.audio_read_thread.start()
@@ -671,7 +476,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.own_video_label.clear()
         self.opp_video_label.clear()
 
-        with self.video_cap_worker.recipient_lock:
+        with self.videocap_worker.recipient_lock:
             self.recipient = ""
 
         self.client.send("ended_call", self.current_call_username())

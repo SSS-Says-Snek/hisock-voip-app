@@ -161,7 +161,7 @@ pycryptodome = "3.17"
 
 [package.source]
 type = "git"
-url = "https://github.com/SSS-Says-Snek/hisock"
+url = "https://github.com/SSS-Says-Snek/hisock.git"
 reference = "HEAD"
 resolved_reference = "5141aa6f0b21ad5905890594fd241452913b3447"
 
@@ -572,4 +572,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "79945f37293c528062a28a6bc23788b36c90534f81d5c8beb89cd4fbb19b4f73"
+content-hash = "bca19813f37d100f15692ca76c6cb682e3e725b76f454dae5d31977e2a043d75"
