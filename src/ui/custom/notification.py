@@ -1,8 +1,17 @@
+"""
+This file is a part of the source code for hisock-voip-app
+This project has been licensed under the MIT license.
+Copyright (c) 2022-present SSS-Says-Snek
+"""
+
+from __future__ import annotations
+
 import time
 
-from PyQt6.QtCore import Qt, QRectF, QObject, pyqtSignal, QThread
+from PyQt6.QtCore import QObject, QRectF, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QBrush, QColor, QPainter, QPainterPath
-from PyQt6.QtWidgets import QHBoxLayout, QGridLayout, QLabel, QWidget, QPushButton, QSizePolicy, QProgressBar
+from PyQt6.QtWidgets import (QGridLayout, QHBoxLayout, QLabel, QProgressBar,
+                             QPushButton, QSizePolicy, QWidget)
 
 
 class AutoProgressWorker(QObject):
@@ -13,9 +22,9 @@ class AutoProgressWorker(QObject):
         super().__init__()
 
         self.duration = duration
-    
+
         self.running = True
-    
+
     def run(self):
         start_time = time.time()
 
@@ -23,8 +32,8 @@ class AutoProgressWorker(QObject):
             self.update.emit(int((time.time() - start_time) / self.duration * 100))
             time.sleep(1 / 120)
         self.done.emit()
-    
-    def finish(self):
+
+    def stop(self):
         self.running = False
 
 
@@ -34,12 +43,12 @@ class Notif(QWidget):
 
         self.text = text
         self.text_label = QLabel(self.text, self)
-        
+
         self.setFixedWidth(width)
         self.setFixedHeight(self.height() + 40)
 
         self.closed = False
-    
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHints(QPainter.RenderHint.Antialiasing)
@@ -55,8 +64,8 @@ class Notif(QWidget):
         painter.setClipPath(path)
 
         painter.fillPath(path, painter.brush())
-    
-    def finish(self):
+
+    def stop(self):
         pass
 
 
@@ -69,7 +78,7 @@ class AcknowledgeNotif(Notif):
         self.ok_button = QPushButton("Okay", self)
         self.ok_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
         self.ok_button.setStyleSheet("background-color: transparent;")
-        self.ok_button.clicked.connect(self.finish)
+        self.ok_button.clicked.connect(self.stop)
 
         self.auto_progressbar = QProgressBar(self)
         self.auto_progressbar.setFixedHeight(5)
@@ -81,19 +90,19 @@ class AcknowledgeNotif(Notif):
         self.auto_progress_thread.finished.connect(self.thread_close)
 
         self.auto_progress_worker.update.connect(self.auto_progressbar.setValue)
-        self.auto_progress_worker.done.connect(self.finish)
+        self.auto_progress_worker.done.connect(self.stop)
         self.auto_progress_thread.start()
 
         layout.addWidget(self.text_label, 0, 0)
         layout.addWidget(self.ok_button, 0, 1)
         layout.addWidget(self.auto_progressbar, 1, 0, 1, 2)
         self.setLayout(layout)
-    
-    def finish(self):
+
+    def stop(self):
         self.auto_progress_thread.quit()
-        self.auto_progress_worker.finish()
+        self.auto_progress_worker.stop()
         self.hide()
-    
+
     def thread_close(self):
         self.closed = True
 
@@ -120,7 +129,7 @@ class IncomingCallNotif(Notif):
         layout.addWidget(self.no_button)
         layout.addWidget(self.ok_button)
         self.setLayout(layout)
-    
+
     def accept(self):
         self.accepted.emit()
         self.hide()

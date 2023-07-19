@@ -1,4 +1,4 @@
-# Form implementation generated from reading ui file 'src/ui/main.ui'
+# Form implementation generated from reading ui file '/home/bdon/Programming/hisock-voip-app/src/ui/main.ui'
 #
 # Created by: PyQt6 UI code generator 6.5.1
 #
